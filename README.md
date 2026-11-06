@@ -7,4 +7,6 @@ This repo wraps it in a native Android WebView app that works fully offline.
 - `app/src/main/assets/` — offline copy (`index.html` + bundled `three.min.js`)
 - GitHub Actions builds the APK on every push: download it from **Releases → Planora (latest APK)** or the workflow's artifacts, then install on your phone.
 
+Export (PNG, PDF, OBJ, JSON) saves to Downloads/Planora on the phone.
+
 Local build: `gradle :app:assembleDebug` (needs Android SDK).
