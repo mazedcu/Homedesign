@@ -793,9 +793,10 @@ const fname=e=>(S.cfg.name||'plan').replace(/[^\w\-]+/g,'_')+'_'+e;
 function dataBlob(u){const m=u.match(/^data:([^;]+);base64,(.*)$/),b=atob(m[2]),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return new Blob([a],{type:m[1]})}
 function deliver(name,blob,preview){
  if(window.Android&&window.Android.saveFile){const fr=new FileReader();fr.onload=()=>{try{window.Android.saveFile(name,blob.type||'application/octet-stream',String(fr.result).split(',')[1]||'')}catch(e){toast('Save failed')}};fr.readAsDataURL(blob);return}
- const url=URL.createObjectURL(blob);
+ const legacy=()=>{const url=URL.createObjectURL(blob);
  if(preview){showModal(`<h3>${esc(name)}</h3><div class="muted">Tap Download, or long-press the image to save it.</div><div style="margin:12px 0"><img src="${preview}"></div><div class="btns"><a class="btn pri" href="${url}" download="${esc(name)}">Download</a><button class="btn" data-m="close">Close</button></div>`);return}
- try{const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),3000);toast('Exporting '+name+'…')}catch(e){toast('Downloads are not available here')}}
+ try{const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>a.remove(),3000);toast('Exporting '+name+'…')}catch(e){toast('Downloads are not available here')}};
+ (async()=>{try{const d=window.claude&&window.claude.use?await window.claude.use('downloads'):null;if(d){const nm=/\.obj$/.test(name)?name+'.txt':name;await d.save({filename:nm,data:blob});toast('Saved '+nm+(nm!==name?' — rename to .obj':''));return}}catch(e){if(e&&e.code==='declined')return}legacy()})()}
 function planCanvas(PW){const sv={W2,H2,DPR,cam:{...cam},w:c2.width,h:c2.height,sel,cin:cur.in},b=planBox(),bw=b[2]-b[0]+4,bh=b[3]-b[1]+4,z=PW/bw,PH=Math.round(bh*z);
  sel=null;cur.in=false;DPR=1;W2=PW;H2=PH;c2.width=lay.width=PW;c2.height=lay.height=PH;cam.x=(b[0]+b[2])/2;cam.y=(b[1]+b[3])/2;cam.z=z;
  draw2d();const o=document.createElement('canvas');o.width=PW;o.height=PH;o.getContext('2d').drawImage(c2,0,0);
