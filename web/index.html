@@ -317,7 +317,7 @@ const CATS=['All','Stairs','Garden','Living','Bedroom','Kitchen','Bath','Dining'
 /* ================= model ================= */
 const DEF_CFG={name:'My House',unit:'m',grid:.25,wallT:.2,wallH:2.8,wallMat:'paint',wallColor:'#f1ece4',floor:'oak',autoWalls:true,dims:true,smart:true,wallMode:'full',roof:'none',roofColor:'#8d4b3a',time:14,shadows:true,ground:true,level:0,lvMode:'below',xray:false,roofPitch:.3};
 let S={levels:[{n:0,name:'Ground floor',h:2.8}],walls:[],opens:[],rooms:[],items:[],tunnels:[],cfg:{...DEF_CFG}};
-let nstep=5;const RHS=[[-1,-1],[1,-1],[1,1],[-1,1],[0,-1],[0,1],[-1,0],[1,0]];
+let nstep=5,tmode='level';const RHS=[[-1,-1],[1,-1],[1,1],[-1,1],[0,-1],[0,1],[-1,0],[1,0]];
 let sel=null,tool='select',armed=null,hist=[],hi=-1,nid=1,ghostRot=0;
 const uid=()=>'e'+(nid++);
 const LRs=()=>{const a=onL('rooms');return a.filter(r=>r.gar).concat(a.filter(r=>!r.gar))},cl=()=>S.cfg.level,onL=(a,n=cl())=>S[a].filter(e=>e.lv===n),LW=()=>onL('walls'),LO=()=>onL('opens'),LR=()=>onL('rooms'),LI=()=>onL('items');
@@ -423,11 +423,11 @@ function tplModern(){mk();const Q=tb();S.cfg.name='Modern 2-Storey';S.cfg.roof='
  Q.O(n,2.4,'winw');Q.O(n,6.8,'winw');Q.O(e,2.5,'win');Q.O(w,2.5,'winw');Q.O(so,1.6,'win');Q.O(so,5.1,'slide',{w:2.4});Q.O(so,8.2,'wins');Q.O(m,1.6,'door');Q.O(m,5.5,'door');
  I=Q.I;I('bed2',2.25,1.13);I('nstand',.95,.4);I('nstand',3.55,.4);I('wardrobe',.43,3.7,-PI/2);I('bed1',6.7,1.13);I('desk',8.55,3.4,PI/2);I('bed2',5.94,6.6,PI/2);I('wardrobe',4.2,5.4);I('shower',7.55,5.55);I('basin',8.65,6.4,PI/2);I('toilet',8.5,7.525,PI);I('plant',2.7,5.5);I('lounger',5.1,9.0,0);
  Q.L(0);S.cfg.level=0}
-function tplTown(){mk();const Q=tb();S.cfg.name='Townhouse with Basement';S.cfg.roof='gable';S.cfg.roofColor='#8d4b3a';S.cfg.lvMode='all';S.cfg.xray=true;S.levels=[{n:-1,name:'Basement',h:2.6},{n:0,name:'Ground floor',h:2.8},{n:1,name:'First floor',h:2.8}];
+function tplTown(){mk();const Q=tb();S.cfg.name='Townhouse with Basement';S.cfg.roof='gable';S.cfg.roofColor='#8d4b3a';S.cfg.lvMode='below';S.cfg.xray=true;S.levels=[{n:-1,name:'Basement',h:2.6},{n:0,name:'Ground floor',h:2.8},{n:1,name:'First floor',h:2.8}];
  Q.L(-1);let[n,e,so,w]=Q.box(0,0,5.5,12,.3,{mat:'concrete'}),m=Q.W(0,7,5.5,7,.14);
  Q.R(0,0,5.5,7,'Rec room','carpet');Q.R(0,7,5.5,5,'Utility & wine cellar','concrete');Q.O(m,2.7,'door');Q.O(e,9.5,'arch',{w:1.6,h:2.3});
  let I=Q.I;I('tvunit',2.7,.4);I('sofa',2.7,3.1,PI);I('coffee',2.7,1.8);I('rug',2.7,2.3);I('plant',.5,.6);I('winerack',.45,8.4,-PI/2);I('boiler',4.9,7.7);I('rack',3.5,11.5,PI);I('stairs',.7,10.35,0,{d:2.7});
- const t1=addTunnel(5.5,9.5,9,9.5,-2.6,-2.6),t2=addTunnel(9,9.5,21,9.5,-2.6,0);
+ const t1=addTunnel(5.5,9.5,9,9.5,-2.6,-2.6),t2=addTunnel(9,9.5,27,9.5,-2.6,0);
  Q.L(0);[n,e,so,w]=Q.box(0,0,5.5,12);m=Q.W(0,8.5,5.5,8.5);
  Q.R(0,0,5.5,5,'Living & dining','oak');Q.R(0,5,5.5,3.5,'Kitchen','tile');Q.R(0,8.5,5.5,3.5,'Hall','tile');
  Q.O(so,2.6,'door');Q.O(so,4.8,'wins');Q.O(n,2.7,'winw');Q.O(w,2.5,'winw');Q.O(w,6.2,'win');Q.O(e,2.5,'winw');Q.O(e,6.2,'win');Q.O(m,2.7,'arch',{w:1.6});
@@ -505,10 +505,11 @@ function balHatch(g,r){g.save();g.beginPath();r.pts.forEach((p,i)=>{const[x,y]=w
 function drawGhost(g){const gn=lvInfo(cl()-1)?cl()-1:lvInfo(cl()+1)?cl()+1:null;if(gn==null)return;g.save();g.lineWidth=1;g.strokeStyle='rgba(150,180,230,.32)';g.setLineDash([5,4]);for(const w of onL('walls',gn)){quadPath(g,wallQuad(w));g.stroke()}g.restore();
  for(const it of onL('items',cl()-1).filter(i=>(IT[i.type]||{}).stair)){const[sx,sy]=w2s(it.x,it.y);g.save();g.translate(sx,sy);g.rotate(it.rot);g.strokeStyle='rgba(255,196,110,.85)';g.fillStyle='rgba(255,196,110,.1)';g.setLineDash([6,4]);g.lineWidth=1.5;g.fillRect(-it.w*cam.z/2,-it.d*cam.z/2,it.w*cam.z,it.d*cam.z);g.strokeRect(-it.w*cam.z/2,-it.d*cam.z/2,it.w*cam.z,it.d*cam.z);g.restore();if(cam.z>=22)pill(g,'▼ stair opening',sx,sy,'#ffd9a0')}}
 function drawTunnels(g){const z=cam.z;for(const t of S.tunnels){const here=t.lv===cl(),L=Math.hypot(t.x2-t.x1,t.y2-t.y1),a=Math.atan2(t.y2-t.y1,t.x2-t.x1),[sx,sy]=w2s(t.x1,t.y1),s=sel&&sel.t==='tunnel'&&sel.id===t.id;
- g.save();g.translate(sx,sy);g.rotate(a);const wd=t.w*z,wt=.28*z;g.globalAlpha=here?1:.5;g.fillStyle=here?'rgba(176,138,92,.38)':'rgba(176,138,92,.14)';g.fillRect(0,-wd/2-wt,L*z,wd+2*wt);
+ g.save();g.translate(sx,sy);g.rotate(a);const wd=t.w*z,wt=.28*z;g.globalAlpha=here?1:.5;{const a0=.14+.4*clamp(-t.e0/2.6,0,1),a1=.14+.4*clamp(-t.e1/2.6,0,1),gr=g.createLinearGradient(0,0,L*z,0),k=here?1:.45;gr.addColorStop(0,`rgba(150,108,62,${a0*k})`);gr.addColorStop(1,`rgba(150,108,62,${a1*k})`);g.fillStyle=gr;g.fillRect(0,-wd/2-wt,L*z,wd+2*wt)}
  g.strokeStyle=s?'#5b8cff':'#d2ad74';g.lineWidth=s?2.5:1.6;g.setLineDash(here?[]:[6,5]);g.strokeRect(0,-wd/2-wt,L*z,wd+2*wt);g.setLineDash([]);g.lineWidth=1;g.strokeRect(0,-wd/2,L*z,wd);
  g.beginPath();for(let d=.6;d<L;d+=1.2){const px=d*z;g.moveTo(px-3,-4);g.lineTo(px+3,0);g.lineTo(px-3,4)}g.stroke();g.restore();
- const rise=t.e1-t.e0;if(z>=18&&(here||s)){const mx=(t.x1+t.x2)/2,my=(t.y1+t.y2)/2,q=w2s(mx,my);pill(g,(Math.abs(rise)>.02?(rise>0?'Ramp ↑ ':'Ramp ↓ ')+Math.round(Math.abs(rise)/Math.max(.1,L)*100)+'% · ':'Tunnel · ')+fmtL(L),q[0],q[1]-wd/2-wt-14,'#fff','rgba(120,86,48,.92)')}
+ const rise=t.e1-t.e0;if(z>=9&&(here||s)){const mx=(t.x1+t.x2)/2,my=(t.y1+t.y2)/2,q=w2s(mx,my);pill(g,(Math.abs(rise)>.02?(rise>0?'Ramp ↑ ':'Ramp ↓ ')+Math.round(Math.abs(rise)/Math.max(.1,L)*100)+'% · ':'Tunnel · ')+fmtL(L),q[0],q[1]-wd/2-wt-14,'#fff','rgba(120,86,48,.92)')}
+ if(z>=9&&(here||s))for(const[x,y,e]of[[t.x1,t.y1,t.e0],[t.x2,t.y2,t.e1]]){const q=w2s(x,y);pill(g,(e<-.01?'−':e>.01?'+':'')+fmtL(Math.abs(e)),q[0],q[1]+wd/2+wt+14,'#ffe9c7','rgba(90,64,34,.92)')}
  if(s)for(const[x,y]of[[t.x1,t.y1],[t.x2,t.y2]]){const q=w2s(x,y);hnd(g,q[0],q[1])}}}
 function hnd(g,x,y){g.fillStyle='#fff';g.strokeStyle='#5b8cff';g.lineWidth=2;g.beginPath();g.arc(x,y,6,0,TAU);g.fill();g.stroke()}
 function pill(g,txt,x,y,fg='#fff',bg='rgba(13,17,23,.88)'){g.font='600 11px Inter,system-ui,sans-serif';const w=g.measureText(txt).width+12;g.fillStyle=bg;rr(g,x-w/2,y-9,w,18,6);g.fill();g.fillStyle=fg;g.textAlign='center';g.textBaseline='middle';g.fillText(txt,x,y+.5)}
@@ -605,7 +606,7 @@ function placeAt(x,y,c){
  if(tool==='wall'){const p=chain?chain.pts[chain.pts.length-1]:null;if(!chain){chain={pts:[{x,y}]};typed='';updateBars();redraw();return}
   if(Math.hypot(x-p.x,y-p.y)<.05)return;addWall(p.x,p.y,x,y);chain.pts.push({x,y});typed='';const f=chain.pts[0];if(chain.pts.length>2&&Math.hypot(f.x-x,f.y-y)<.02){finishChain();return}commit();redraw();sched3();updateBars()}
  else if(tool==='tunnel'){if(!tch){tch={p:{x,y},e:elev(cl()),first:true};updateBars();redraw();return}
-  if(Math.hypot(x-tch.p.x,y-tch.p.y)<.4)return;const t=addTunnel(tch.p.x,tch.p.y,x,y,tch.e,tch.e);if(tch.first)tunnelArch(t,1);tunnelArch(t,2);tch.p={x,y};tch.e=t.e1;tch.first=false;commit();redraw();sched3();select({t:'tunnel',id:t.id});updateBars()}
+  if(Math.hypot(x-tch.p.x,y-tch.p.y)<.4)return;const eN=tmode==='ground'?0:tch.e,t=addTunnel(tch.p.x,tch.p.y,x,y,tch.e,eN);if(tch.first)tunnelArch(t,1);tunnelArch(t,2);tch.p={x,y};tch.e=t.e1;tch.first=false;commit();redraw();sched3();select({t:'tunnel',id:t.id});updateBars()}
  else if(tool==='poly'){if(!poly)poly=[];if(poly.length>=3&&Math.hypot(poly[0].x-x,poly[0].y-y)<14/cam.z){finishPoly();return}poly.push({x,y});updateBars();redraw()}
  else if(tool==='open'){const h=hostWall(c.wx,c.wy,.5);if(!h){toast('Tap on a wall to place');return}const o=addOpen(h.w.id,0,armed.type);o.t=clampT(h.w,o,h.t);commit();redraw();sched3();renderBody()}
  else if(tool==='item'){const it=addItem(armed.type,0,0,0);const r=ghost();it.x=r.x;it.y=r.y;it.rot=r.rot;commit();if((IT[armed.type]||{}).cat==='Garden'){redraw();sched3()}else{setTool('select');select({t:'item',id:it.id})}}}
@@ -642,7 +643,7 @@ function updateBars(){const db=$('#drawbar');let h='';
  if(tool==='wall'&&chain)h=`<span class="lab">${chain.pts.length-1} wall${chain.pts.length===2?'':'s'}</span><button class="pri" data-act="done">${ic('check')}Done</button><button data-act="cancel">${ic('x')}</button>`;
  else if(tool==='poly'&&poly&&poly.length)h=`<span class="lab">${poly.length} points</span><button class="pri" data-act="done" ${poly.length<3?'disabled':''}>${ic('check')}Close</button><button data-act="cancel">${ic('x')}</button>`;
  else if((tool==='room'||(tool==='balcony'||tool==='garden'))&&rs&&rs.awaiting)h=`<span class="lab">Tap opposite corner</span><button data-act="cancel">${ic('x')}</button>`;
- else if(tool==='tunnel'&&tch)h=`<span class="lab">Tunnel · tap next point</span><button class="pri" data-act="done">${ic('check')}Done</button><button data-act="cancel">${ic('x')}</button>`;
+ else if(tool==='tunnel')h=`<span class="lab">${tch?'Tap next point':'Tap start point'}</span><button class="${tmode==='level'?'pri':''}" data-act="tmode:level">Level</button><button class="${tmode==='ground'?'pri':''}" data-act="tmode:ground">Ramp to ground</button>${tch?`<button class="pri" data-act="done">${ic('check')}Done</button>`:''}<button data-act="cancel">${ic('x')}</button>`;
  else if(['open','item'].includes(tool)&&armed)h=`<span class="lab">${esc((armed.k==='open'?OT:IT)[armed.type].n)}</span>${tool==='item'?`<button data-act="ghostrot">${ic('rot')}</button>`:''}<button data-act="cancel">${ic('x')}</button>`;
  db.innerHTML=h;db.style.display=h?'flex':'none';
  let t=HINTS[tool];$('#hint').textContent=t||''}
@@ -719,7 +720,7 @@ function inspHTML(){const e=getE(sel);
   ${fS('Ends at','_end',endv,[['same','Same height'],['g','Ground level'],...lvs().map(l=>['L:'+l.n,l.name]),['custom','Custom']])}${fN('End floor level','e1',e.e1,{t:'len'})}
   ${fS('Lining','lining',e.lining||'concrete',[['concrete','Concrete'],['brick','Brick'],['stone','Stone'],['wood','Timber']])}${fC('Arched roof','arch',e.arch)}${fC('Ceiling lights','lights',e.lights!==false)}</div>
   <div class="muted">Elevations are measured from ground level (0). Basement floor sits at ${fmtL(elev(-1))} below. The tunnel emerges as an open ramp where it reaches the surface.</div>
-  <div class="btns"><button class="btn pri" data-act="tungnd">↑ Rise to ground</button><button class="btn" data-act="dup">${ic('copy')} Duplicate</button><button class="btn dg" data-act="del">${ic('trash')} Delete</button></div>`}
+  <div class="btns"><button class="btn pri" data-act="tungnd">↑ Rise to ground</button><button class="btn" data-act="tunexit">+ Exit ramp to ground</button><button class="btn" data-act="dup">${ic('copy')} Duplicate</button><button class="btn dg" data-act="del">${ic('trash')} Delete</button></div>`}
  if(sel.t==='wall'){const mat=e.mat||'paint';return`<div class="tt">Wall</div><div class="sub">${fmtL(wl(e))} long</div><div data-e="sel">${fN('Length','_L',wl(e),{t:'len'})}${fN('Thickness','t',e.t,{t:'len'})}${fN('Height','h',e.h,{t:'len'})}
   ${fS('Finish','mat',mat,Object.entries(WALLM).map(([k,v])=>[k,v.n]))}</div>${mat==='paint'?'<h4>Paint</h4>'+swatches('color',PAINTS,e.color):''}
   <div class="btns"><button class="btn" data-act="applywalls">Apply to all walls</button><button class="btn" data-act="splitwall">Split in half</button></div>
@@ -786,7 +787,8 @@ function act(a,el){const[k,p1,p2]=a.split(':');const e=getE(sel);
   case'centerOpen':if(e){e.t=.5;commit();redraw();sched3()}break;
   case'rotl':if(sel&&sel.t==='item')rotSel(90);else rotSel(0);break;
   case'dup':dupSel();break;case'del':delSel();break;case'edit':setTab('insp');openSide(true);break;
-  case'tungnd':if(e){e.e1=0;commit();redraw();sched3();renderBody()}break;case'scatter':scatterPlants(p1);break;case'nstep':nstep=+p1;renderBody();break;case'nudge':if(e&&sel.t==='item'){e.x+=+p1*nstep/100;e.y+=+p2*nstep/100;commit();redraw();sched3()}break;case'nsz':if(e&&sel.t==='item'){e[p1]=Math.max(.05,e[p1]+ +p2*nstep/100);commit();redraw();sched3();renderBody()}break;case'nrot':if(e&&sel.t==='item'){e.rot=((e.rot+ +p1*(nstep===25?5:nstep===5?1:.5)*PI/180)%TAU+TAU)%TAU;commit();redraw();sched3();renderBody()}break;case'boundary':addBoundary();break;case'preset':preset(p1);break;case'walk':toggleWalk();break;case'snap3':snapshot(3);break;
+  case'tungnd':if(e){e.e1=0;commit();redraw();sched3();renderBody()}break;case'tmode':tmode=p1;updateBars();break;case'tunexit':if(e&&sel.t==='tunnel'){if(e.e1>=-.05){toast('Already at ground level');break}const L=Math.hypot(e.x2-e.x1,e.y2-e.y1)||1,ux=(e.x2-e.x1)/L,uy=(e.y2-e.y1)/L,len=Math.max(4,Math.round(-e.e1/.14*2)/2),n=addTunnel(e.x2,e.y2,e.x2+ux*len,e.y2+uy*len,e.e1,0);n.w=e.w;n.h=e.h;n.arch=e.arch;n.lining=e.lining;commit();redraw();sched3();select({t:'tunnel',id:n.id});toast('Exit ramp added ('+fmtL(len)+', '+Math.round(-e.e1/len*100)+'% slope)')}break;
+ case'scatter':scatterPlants(p1);break;case'nstep':nstep=+p1;renderBody();break;case'nudge':if(e&&sel.t==='item'){e.x+=+p1*nstep/100;e.y+=+p2*nstep/100;commit();redraw();sched3()}break;case'nsz':if(e&&sel.t==='item'){e[p1]=Math.max(.05,e[p1]+ +p2*nstep/100);commit();redraw();sched3();renderBody()}break;case'nrot':if(e&&sel.t==='item'){e.rot=((e.rot+ +p1*(nstep===25?5:nstep===5?1:.5)*PI/180)%TAU+TAU)%TAU;commit();redraw();sched3();renderBody()}break;case'boundary':addBoundary();break;case'preset':preset(p1);break;case'walk':toggleWalk();break;case'snap3':snapshot(3);break;
   case'tplmenu':menu(true);break}}
 $('#tools').addEventListener('click',e=>{const b=e.target.closest('.tb');if(!b)return;const t=b.dataset.tool;if(t==='door'||t==='window'){if(!LW().length){toast('Draw some walls first');return}setTool(t);if(!isMobile())setTab('lib')}else setTool(t)});
 $$('#tabs button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
@@ -900,14 +902,20 @@ function updateEnv(){if(!T)return;const t=S.cfg.time,el=Math.sin((t-6)/12*PI),da
 function tunnelShape(t){const w=t.w,h=t.h,r=w/2,wt=.28,arch=t.arch&&h>=r+.5,o=r+wt,s=new THREE.Shape(),p=new THREE.Path();
  if(arch){s.moveTo(-o,-wt);s.lineTo(o,-wt);s.lineTo(o,h-r);s.absarc(0,h-r,o,0,PI,false);s.lineTo(-o,-wt);p.moveTo(-r,0);p.lineTo(r,0);p.lineTo(r,h-r);p.absarc(0,h-r,r,0,PI,false);p.lineTo(-r,0)}
  else{s.moveTo(-o,-wt);s.lineTo(o,-wt);s.lineTo(o,h+wt);s.lineTo(-o,h+wt);s.lineTo(-o,-wt);p.moveTo(-r,0);p.lineTo(r,0);p.lineTo(r,h);p.lineTo(-r,h);p.lineTo(-r,0)}s.holes.push(p);return s}
-function tunnel3(t,lights,gholes){const dx=t.x2-t.x1,dz=t.y2-t.y1,dy=t.e1-t.e0,Lh=Math.hypot(dx,dz);if(Lh<.1)return;const Ls=Math.hypot(Lh,dy),h=t.h,wt=.28,under=Math.min(t.e0,t.e1)<-.05;
- const geo=new THREE.ExtrudeGeometry(tunnelShape(t),{depth:Ls,bevelEnabled:false,curveSegments:18}),lk=t.lining||'concrete',m=texMat('w',lk,(WALLM[lk]||WALLM.concrete).sz||3,.9).clone();m.side=THREE.DoubleSide;if(under)m.clippingPlanes=[CLIP];
- if(sel&&sel.t==='tunnel'&&sel.id===t.id){m.emissive=new THREE.Color(0x2a4fb0);m.emissiveIntensity=.55}
- const me=new THREE.Mesh(geo,m);me.castShadow=me.receiveShadow=true;me.userData.sel={t:'tunnel',id:t.id};world.add(me);me.position.set(t.x1,t.e0,t.y1);me.lookAt(t.x2,t.e1,t.y2);me.updateMatrixWorld(true);
- if(t.lights!==false){const cr=(t.arch&&h>=t.w/2+.5)?h-.1:h-.12;for(let q=1.5;q<Ls-.8;q+=3){const ee=t.e0+dy*q/Ls;if(under&&ee+h>-.2)continue;bx(me,.14,.05,.4,0,cr,q,'#fff6d6',{e:'#ffe6a0',ei:1})}}
- const em=t.e0+dy*.5;if(em+h<-.2)lights.push([t.x1+dx*.5,em+h-.5,t.y1+dz*.5]);
- if(under&&Math.max(t.e0,t.e1)+h>.02){let a,b;if(Math.abs(dy)<1e-6){a=0;b=1}else{const tc=(.02-h-t.e0)/dy;if(dy>0){a=clamp(tc,0,1);b=1}else{a=0;b=clamp(tc,0,1)}}
-  if(b-a>.001){const ux=dx/Lh,uz=dz/Lh,nx=-uz,nz=ux,hw=t.w/2+wt,P=f=>[t.x1+dx*f,t.y1+dz*f],A=P(a),B=P(b);gholes.push([[A[0]+nx*hw,A[1]+nz*hw],[B[0]+nx*hw,B[1]+nz*hw],[B[0]-nx*hw,B[1]-nz*hw],[A[0]-nx*hw,A[1]-nz*hw]])}}}
+function tunnel3(t,lights,gholes){const dx=t.x2-t.x1,dz=t.y2-t.y1,Lh=Math.hypot(dx,dz);if(Lh<.1)return;const w=t.w,h=t.h,wt=.28,e0=t.e0,e1=t.e1,dy=e1-e0,fl=u=>e0+dy*u/Lh,xr=S.cfg.xray||cl()<0,lk=t.lining||'concrete',wm=WALLM[lk]||WALLM.concrete,hs=sel&&sel.t==='tunnel'&&sel.id===t.id,
+ mat=roof=>{const m=texMat('w',lk,wm.sz||3,.9).clone();m.side=THREE.DoubleSide;if(hs){m.emissive=new THREE.Color(0x2a4fb0);m.emissiveIntensity=.55}if(roof&&xr){m.transparent=true;m.opacity=.5;m.depthWrite=false}return m},
+ P=u=>[t.x1+dx*u/Lh,t.y1+dz*u/Lh],ce0=e0+h,ce1=e1+h;
+ let tube=null,open=null;
+ if(Math.min(e0,e1)>=-.05||(ce0<=.02&&ce1<=.02))tube=[0,Lh];else if(ce0>.02&&ce1>.02)open=[0,Lh];else{const uc=clamp(Lh*(-(e0+h))/dy,0,Lh);if(dy>0){tube=[0,uc];open=[uc,Lh]}else{open=[0,uc];tube=[uc,Lh]}}
+ const grp=new THREE.Group();grp.position.set(t.x1,0,t.y1);grp.rotation.y=-Math.atan2(dz,dx);grp.userData.sel={t:'tunnel',id:t.id};world.add(grp);
+ if(tube&&tube[1]-tube[0]>.15){const[ua,ub]=tube,A=P(ua),B=P(ub),ya=fl(ua),yb=fl(ub),Ls=Math.hypot(ub-ua,yb-ya),geo=new THREE.ExtrudeGeometry(tunnelShape(t),{depth:Ls,bevelEnabled:false,curveSegments:18}),me=new THREE.Mesh(geo,mat(true));me.castShadow=me.receiveShadow=true;me.userData.sel={t:'tunnel',id:t.id};me.position.set(A[0],ya,A[1]);world.add(me);me.lookAt(B[0],yb,B[1]);me.updateMatrixWorld(true);
+  if(t.lights!==false){const cr=(t.arch&&h>=w/2+.5)?h-.1:h-.12;for(let q=1.5;q<Ls-.8;q+=3)bx(me,.14,.05,.4,0,cr,q,'#fff6d6',{e:'#ffe6a0',ei:1})}
+  const um=(ua+ub)/2,M=P(um);if(fl(um)+h<-.2)lights.push([M[0],fl(um)+h-.5,M[1]])}
+ if(open&&open[1]-open[0]>.05){const[uc,ud]=open,top=u=>Math.max(fl(u),Math.min(fl(u)+h,0)),sm=stdMat('#8d9094',{r:.9}).clone(),f=new THREE.Shape();f.moveTo(uc,fl(uc));f.lineTo(ud,fl(ud));f.lineTo(ud,fl(ud)-.3);f.lineTo(uc,fl(uc)-.3);f.closePath();
+  const fg=new THREE.ExtrudeGeometry(f,{depth:w+2*wt,bevelEnabled:false});fg.translate(0,0,-(w/2+wt));const fm=new THREE.Mesh(fg,sm);fm.receiveShadow=true;grp.add(fm);
+  for(const side of[1,-1]){const sp=new THREE.Shape();sp.moveTo(uc,fl(uc));sp.lineTo(ud,fl(ud));sp.lineTo(ud,top(ud));sp.lineTo(uc,top(uc));sp.closePath();const g2_=new THREE.ExtrudeGeometry(sp,{depth:wt,bevelEnabled:false});g2_.translate(0,0,side>0?w/2:-w/2-wt);const wm_=new THREE.Mesh(g2_,mat(false));wm_.castShadow=wm_.receiveShadow=true;grp.add(wm_)}
+  const nr=Math.floor((ud-uc)/.6);for(let i=1;i<nr;i++){const u=uc+i*(ud-uc)/nr;bx(grp,.05,.025,w,u,fl(u)+.012,0,'#6e7175')}
+  const nx=-dz/Lh,nz=dx/Lh,hw=w/2+wt,A=P(uc),B=P(ud);gholes.push([[A[0]+nx*hw,A[1]+nz*hw],[B[0]+nx*hw,B[1]+nz*hw],[B[0]-nx*hw,B[1]-nz*hw],[A[0]-nx*hw,A[1]-nz*hw]])}}
 function mergeHoles(h){const bb=p=>[Math.min(...p.map(q=>q[0])),Math.min(...p.map(q=>q[1])),Math.max(...p.map(q=>q[0])),Math.max(...p.map(q=>q[1]))];let ch=true;while(ch){ch=false;outer:for(let i=0;i<h.length;i++)for(let j=i+1;j<h.length;j++){const a=bb(h[i]),b=bb(h[j]);if(a[0]<b[2]&&b[0]<a[2]&&a[1]<b[3]&&b[1]<a[3]){const u=[Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[2],b[2]),Math.max(a[3],b[3])];h.splice(j,1);h.splice(i,1,[[u[0],u[1]],[u[2],u[1]],[u[2],u[3]],[u[0],u[3]]]);ch=true;break outer}}}return h}
 function hipGeo(Wr,Lr,rise){const rl=Math.max(0,Lr-Wr),a=[-Wr/2,0,-Lr/2],b=[Wr/2,0,-Lr/2],c=[Wr/2,0,Lr/2],d=[-Wr/2,0,Lr/2],r1=[0,rise,-rl/2],r2=[0,rise,rl/2],f=[a,b,r1,b,c,r2,b,r2,r1,c,d,r2,d,a,r1,d,r1,r2],g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(f.flat(),3));g.computeVertexNormals();return g}
 function railings(G,r){const style=r.rail||'glass';if(style==='none')return;const mc='#cfd3d8',H=style==='solid'?.95:1.05;
