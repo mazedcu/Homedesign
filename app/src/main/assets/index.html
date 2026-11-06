@@ -315,6 +315,7 @@ const CATS=['All','Stairs','Garden','Living','Bedroom','Kitchen','Bath','Dining'
 /* ================= model ================= */
 const DEF_CFG={name:'My House',unit:'m',grid:.25,wallT:.2,wallH:2.8,wallMat:'paint',wallColor:'#f1ece4',floor:'oak',autoWalls:true,dims:true,smart:true,wallMode:'full',roof:'none',roofColor:'#8d4b3a',time:14,shadows:true,ground:true,level:0,lvMode:'below',xray:false,roofPitch:.3};
 let S={levels:[{n:0,name:'Ground floor',h:2.8}],walls:[],opens:[],rooms:[],items:[],tunnels:[],cfg:{...DEF_CFG}};
+let nstep=5;const RHS=[[-1,-1],[1,-1],[1,1],[-1,1],[0,-1],[0,1],[-1,0],[1,0]];
 let sel=null,tool='select',armed=null,hist=[],hi=-1,nid=1,ghostRot=0;
 const uid=()=>'e'+(nid++);
 const LRs=()=>{const a=onL('rooms');return a.filter(r=>r.gar).concat(a.filter(r=>!r.gar))},cl=()=>S.cfg.level,onL=(a,n=cl())=>S[a].filter(e=>e.lv===n),LW=()=>onL('walls'),LO=()=>onL('opens'),LR=()=>onL('rooms'),LI=()=>onL('items');
@@ -484,7 +485,7 @@ function draw2d(){const g=g2,z=cam.z;g.setTransform(DPR,0,0,DPR,0,0);g.fillStyle
   if(sel&&sel.t==='open'&&sel.id===o.id){g.strokeStyle='#5b8cff';g.lineWidth=2;g.strokeRect(-o.w*z/2-3,-w.t*z/2-4,o.w*z+6,w.t*z+8)}g.restore()}
  /* items */
  for(const it of LI()){const d=IT[it.type];if(!d)continue;const[sx,sy]=w2s(it.x,it.y);g.save();g.translate(sx,sy);g.rotate(it.rot);drawItem2D(g,d,it.w*z,it.d*z,it.color,Math.max(1,z*.015));
-  if(sel&&sel.t==='item'&&sel.id===it.id){g.strokeStyle='#5b8cff';g.lineWidth=2;g.setLineDash([6,4]);g.strokeRect(-it.w*z/2-4,-it.d*z/2-4,it.w*z+8,it.d*z+8);g.setLineDash([]);const hy=-it.d*z/2-30;g.beginPath();g.moveTo(0,-it.d*z/2-4);g.lineTo(0,hy+9);g.stroke();g.fillStyle='#5b8cff';g.beginPath();g.arc(0,hy,10,0,TAU);g.fill();g.strokeStyle='#fff';g.lineWidth=1.6;g.beginPath();g.arc(0,hy,4.5,-.5,4.3);g.stroke()}g.restore()}
+  if(sel&&sel.t==='item'&&sel.id===it.id){g.strokeStyle='#5b8cff';g.lineWidth=2;g.setLineDash([6,4]);g.strokeRect(-it.w*z/2-4,-it.d*z/2-4,it.w*z+8,it.d*z+8);g.setLineDash([]);{const hxw=it.w*z/2+4,hyd=it.d*z/2+4,big=Math.min(it.w,it.d)*z>46;g.fillStyle='#fff';g.strokeStyle='#5b8cff';g.lineWidth=2;for(const[a,b]of RHS.slice(0,big?8:4)){g.beginPath();g.arc(a*hxw,b*hyd,7.5,0,TAU);g.fill();g.stroke()}}const hy=-it.d*z/2-30;g.beginPath();g.moveTo(0,-it.d*z/2-4);g.lineTo(0,hy+9);g.stroke();g.fillStyle='#5b8cff';g.beginPath();g.arc(0,hy,10,0,TAU);g.fill();g.strokeStyle='#fff';g.lineWidth=1.6;g.beginPath();g.arc(0,hy,4.5,-.5,4.3);g.stroke()}g.restore();if(sel&&sel.t==='item'&&sel.id===it.id&&z>=14){const[lx_,ly_]=w2s(it.x,it.y);pill(g,fmtL(it.w)+' × '+fmtL(it.d),lx_,ly_+Math.hypot(it.w,it.d)*z/2+30)}}
  /* labels */
  const fs=clamp(z*.2,10,15);
  if(z>=16)for(const r of LR()){const c=polyCenter(r.pts),[x,y]=w2s(c.x,c.y);g.textAlign='center';g.textBaseline='middle';g.font=`600 ${fs}px Inter,system-ui,sans-serif`;g.lineWidth=3;g.strokeStyle='rgba(13,17,23,.85)';g.fillStyle='#fff';g.strokeText(r.name,x,y);g.fillText(r.name,x,y);g.font=`500 ${fs-1.5}px Inter,system-ui,sans-serif`;g.fillStyle='#9fb0c6';const a=fmtA(polyArea(r.pts));g.strokeText(a,x,y+fs+2);g.fillText(a,x,y+fs+2)}
@@ -532,23 +533,30 @@ function pick(wx,wy){const tol=8/cam.z;
  let bw=null,bd=1e9;for(const w of LW()){const p=segProj(wx,wy,w.x1,w.y1,w.x2,w.y2);if(p.d<Math.max(w.t/2,tol)&&p.d<bd){bd=p.d;bw=w}}if(bw)return{t:'wall',id:bw.id};
  for(const t of S.tunnels){if(t.lv!==cl())continue;const q=segProj(wx,wy,t.x1,t.y1,t.x2,t.y2);if(q.d<Math.max(t.w/2+.28,tol))return{t:'tunnel',id:t.id}}
  for(let i=LRs().length-1;i>=0;i--)if(inPoly(wx,wy,LRs()[i].pts))return{t:'room',id:LRs()[i].id};return null}
+function faceSnap(o,axis,val){const c=Math.cos(o.rot),s=Math.sin(o.rot),n=axis==='x'?[c,s]:[-s,c],P=[o.x+n[0]*val,o.y+n[1]*val];let best=val,bd=.12;
+ for(const w of LW()){const L=wl(w);if(L<.05)continue;const wx_=(w.x2-w.x1)/L,wy_=(w.y2-w.y1)/L;if(Math.abs(wx_*n[0]+wy_*n[1])>.06)continue;const u=(P[0]-w.x1)*wx_+(P[1]-w.y1)*wy_;if(u<-.4||u>L+.4)continue;const t=(P[0]-w.x1)*n[0]+(P[1]-w.y1)*n[1];for(const f of[-w.t/2,w.t/2,0]){const dl=f-t;if(Math.abs(dl)<bd){bd=Math.abs(dl);best=val+dl}}}return best}
 function handleHit(wx,wy){if(!sel)return null;const tol=13/cam.z,e=getE(sel);if(!e)return null;
  if(sel.t==='wall'){if(Math.hypot(wx-e.x1,wy-e.y1)<tol)return{k:'wend',end:1};if(Math.hypot(wx-e.x2,wy-e.y2)<tol)return{k:'wend',end:2}}
  if(sel.t==='tunnel'){if(Math.hypot(wx-e.x1,wy-e.y1)<tol)return{k:'tend',end:1};if(Math.hypot(wx-e.x2,wy-e.y2)<tol)return{k:'tend',end:2}}
  if(sel.t==='room'){for(let i=0;i<e.pts.length;i++)if(Math.hypot(wx-e.pts[i].x,wy-e.pts[i].y)<tol)return{k:'rvert',i}}
- if(sel.t==='item'){const c=Math.cos(e.rot),s=Math.sin(e.rot),ly=-e.d/2-30/cam.z,hx=e.x-ly*s,hy=e.y+ly*c;if(Math.hypot(wx-hx,wy-hy)<14/cam.z)return{k:'irot'}}return null}
+ if(sel.t==='item'){const c=Math.cos(e.rot),s=Math.sin(e.rot),ly=-e.d/2-30/cam.z,hx=e.x-ly*s,hy=e.y+ly*c;if(Math.hypot(wx-hx,wy-hy)<16/cam.z)return{k:'irot'};const big=Math.min(e.w,e.d)*cam.z>46;let best=null,bd=17/cam.z;for(const[a,b]of RHS.slice(0,big?8:4)){const lx=a*(e.w/2+4/cam.z),ly2=b*(e.d/2+4/cam.z),X=e.x+lx*c-ly2*s,Y=e.y+lx*s+ly2*c,dd=Math.hypot(wx-X,wy-Y);if(dd<bd){bd=dd;best={k:'ires',hx:a,hy:b}}}if(best)return best}return null}
 function beginDrag(h,wx,wy,sx,sy){const e=getE(sel);const base={before:snapJSON(),sx,sy,wx,wy,moved:false};
  if(h&&h.k==='wend'){const px=h.end===1?e.x1:e.x2,py=h.end===1?e.y1:e.y2;const link=[];for(const w of LW()){if(Math.hypot(w.x1-px,w.y1-py)<.01)link.push([w,1]);if(Math.hypot(w.x2-px,w.y2-py)<.01)link.push([w,2])}return{...base,k:'wend',link,e,end:h.end,ox:px,oy:py}}
  if(h&&h.k==='rvert')return{...base,k:'rvert',e,i:h.i};
  if(h&&h.k==='tend')return{...base,k:'tend',e,end:h.end};
  if(sel.t==='tunnel')return{...base,k:'tunnel',e,o:[e.x1,e.y1,e.x2,e.y2]};
  if(h&&h.k==='irot')return{...base,k:'irot',e};
+ if(h&&h.k==='ires')return{...base,k:'ires',e,hx:h.hx,hy:h.hy,o:{x:e.x,y:e.y,w:e.w,d:e.d,rot:e.rot}};
  if(sel.t==='wall'){const pts=[[e.x1,e.y1],[e.x2,e.y2]],link=[];for(const w of LW())for(const p of pts){if(Math.hypot(w.x1-p[0],w.y1-p[1])<.01)link.push([w,1,w.x1,w.y1]);if(Math.hypot(w.x2-p[0],w.y2-p[1])<.01)link.push([w,2,w.x2,w.y2])}return{...base,k:'wall',e,link:link.filter((a,i)=>link.findIndex(b=>b[0]===a[0]&&b[1]===a[1])===i)}}
  if(sel.t==='room')return{...base,k:'room',e,orig:e.pts.map(p=>({...p}))};
  if(sel.t==='item')return{...base,k:'item',e,ox:e.x,oy:e.y,orot:e.rot,gx:wx-e.x,gy:wy-e.y};
  if(sel.t==='open')return{...base,k:'open',e};return null}
 function moveDrag(d,wx,wy,sx,sy){if(!d.moved&&Math.hypot(sx-d.sx,sy-d.sy)<4)return;d.moved=true;const e=d.e;
  if(d.k==='item'){const nx=snapV(wx-d.gx),ny=snapV(wy-d.gy),r=smartSnap(e,nx,ny,d.orot);e.x=r.x;e.y=r.y;e.rot=r.snapped?r.rot:d.orot}
+ else if(d.k==='ires'){const o=d.o,c=Math.cos(o.rot),s=Math.sin(o.rot),dx=wx-o.x,dy=wy-o.y,lx=dx*c+dy*s,ly=-dx*s+dy*c,q=v=>altDown?v:Math.round(v/.05)*.05;let nw=o.w,nd=o.d,cx=0,cy=0;
+  if(d.hx){nw=Math.max(.1,q(d.hx*lx+o.w/2));let val=d.hx*(nw-o.w/2);if(!altDown)val=faceSnap(o,'x',val);nw=Math.max(.1,d.hx*val+o.w/2);cx=d.hx*(nw-o.w)/2}
+  if(d.hy){nd=Math.max(.1,q(d.hy*ly+o.d/2));let val=d.hy*(nd-o.d/2);if(!altDown)val=faceSnap(o,'y',val);nd=Math.max(.1,d.hy*val+o.d/2);cy=d.hy*(nd-o.d)/2}
+  e.w=nw;e.d=nd;e.x=o.x+cx*c-cy*s;e.y=o.y+cx*s+cy*c}
  else if(d.k==='irot'){let a=Math.atan2(wy-e.y,wx-e.x)+PI/2;if(!altDown){const s=PI/12,q=Math.round(a/s)*s;if(Math.abs(a-q)<.12||shiftDown)a=q}e.rot=((a%TAU)+TAU)%TAU}
  else if(d.k==='wend'){const ex=new Set(d.link.map(l=>l[0]));const other=d.end===1?[d.e.x2,d.e.y2]:[d.e.x1,d.e.y1];const p=snapPt(wx,wy,ex,{x:other[0],y:other[1]});for(const[w,end]of d.link){if(end===1){w.x1=p.x;w.y1=p.y}else{w.x2=p.x;w.y2=p.y}}}
  else if(d.k==='wall'){const dx=snapV(wx-d.wx),dy=snapV(wy-d.wy);for(const[w,end,ox,oy]of d.link){if(end===1){w.x1=ox+dx;w.y1=oy+dy}else{w.x2=ox+dx;w.y2=oy+dy}}}
@@ -722,7 +730,11 @@ function inspHTML(){const e=getE(sel);
   ${fS('Type','type',e.type,Object.entries(OT).map(([k,v])=>[k,v.n]))}${fN('Width','w',e.w,{t:'len'})}${fN('Height','h',e.h,{t:'len'})}${d.k==='win'?fN('Sill height','sill',e.sill,{t:'len'}):''}</div>
   <div class="btns"><button class="btn" data-act="flip">${ic('rot')} Flip swing</button><button class="btn" data-act="flipH">Flip hinge</button><button class="btn" data-act="centerOpen">Center on wall</button></div>
   <div class="btns"><button class="btn dg" data-act="del">${ic('trash')} Delete</button></div>`}
- if(sel.t==='item'){const d=IT[e.type];return`<div class="tt">${d.n}</div><div class="sub">${d.cat}</div><div data-e="sel">${fN('Width','w',e.w,{t:'len'})}${fN('Depth','d',e.d,{t:'len'})}${fN('Height','h',e.h,{t:'len'})}${fN('Rotation °','rot',e.rot*180/PI,{t:'deg',dp:0})}${fN('Raised by','elev',e.elev||0,{t:'len'})}</div>
+ if(sel.t==='item'){const d=IT[e.type];return`<div class="tt">${d.n}</div><div class="sub">${d.cat}</div><div data-e="sel">${fN('Width','w',e.w,{t:'len',step:.01,dp:3})}${fN('Depth','d',e.d,{t:'len',step:.01,dp:3})}${fN('Height','h',e.h,{t:'len',step:.01,dp:3})}${fN('Rotation °','rot',e.rot*180/PI,{t:'deg',dp:1,step:.5})}${fN('Raised by','elev',e.elev||0,{t:'len',step:.01,dp:3})}</div>
+  <h4>Fine tune</h4><div class="chips">${[1,5,25].map(v=>`<button class="chip ${nstep===v?'on':''}" data-act="nstep:${v}">${v} cm</button>`).join('')}</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0"><span></span><button class="btn" data-act="nudge:0:-1">▲</button><span></span><button class="btn" data-act="nudge:-1:0">◀</button><span class="muted" style="align-self:center;text-align:center">Move</span><button class="btn" data-act="nudge:1:0">▶</button><span></span><button class="btn" data-act="nudge:0:1">▼</button><span></span></div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px"><button class="btn" data-act="nsz:w:-1">W −</button><button class="btn" data-act="nsz:w:1">W +</button><button class="btn" data-act="nsz:d:-1">D −</button><button class="btn" data-act="nsz:d:1">D +</button><button class="btn" data-act="nrot:-1">⟲</button><button class="btn" data-act="nrot:1">⟳</button><button class="btn" data-act="nsz:h:-1">H −</button><button class="btn" data-act="nsz:h:1">H +</button></div>
+  <div class="muted">Drag the round handles on the plan to resize with your finger — edges snap to 5 cm and to wall faces (hold Alt to disable).</div>
   <h4>Colour</h4>${swatches('color',[d.col,...FCOL],e.color)}
   <div class="btns"><button class="btn" data-act="rotl">${ic('rot')} Rotate 90°</button><button class="btn" data-act="dup">${ic('copy')} Duplicate</button><button class="btn dg" data-act="del">${ic('trash')} Delete</button></div>`}}
 function sceneHTML(){const t=S.cfg.time,hh=Math.floor(t),mm=Math.round((t-hh)*60);
@@ -772,7 +784,7 @@ function act(a,el){const[k,p1,p2]=a.split(':');const e=getE(sel);
   case'centerOpen':if(e){e.t=.5;commit();redraw();sched3()}break;
   case'rotl':if(sel&&sel.t==='item')rotSel(90);else rotSel(0);break;
   case'dup':dupSel();break;case'del':delSel();break;case'edit':setTab('insp');openSide(true);break;
-  case'tungnd':if(e){e.e1=0;commit();redraw();sched3();renderBody()}break;case'scatter':scatterPlants(p1);break;case'boundary':addBoundary();break;case'preset':preset(p1);break;case'walk':toggleWalk();break;case'snap3':snapshot(3);break;
+  case'tungnd':if(e){e.e1=0;commit();redraw();sched3();renderBody()}break;case'scatter':scatterPlants(p1);break;case'nstep':nstep=+p1;renderBody();break;case'nudge':if(e&&sel.t==='item'){e.x+=+p1*nstep/100;e.y+=+p2*nstep/100;commit();redraw();sched3()}break;case'nsz':if(e&&sel.t==='item'){e[p1]=Math.max(.05,e[p1]+ +p2*nstep/100);commit();redraw();sched3();renderBody()}break;case'nrot':if(e&&sel.t==='item'){e.rot=((e.rot+ +p1*(nstep===25?5:nstep===5?1:.5)*PI/180)%TAU+TAU)%TAU;commit();redraw();sched3();renderBody()}break;case'boundary':addBoundary();break;case'preset':preset(p1);break;case'walk':toggleWalk();break;case'snap3':snapshot(3);break;
   case'tplmenu':menu(true);break}}
 $('#tools').addEventListener('click',e=>{const b=e.target.closest('.tb');if(!b)return;const t=b.dataset.tool;if(t==='door'||t==='window'){if(!LW().length){toast('Draw some walls first');return}setTool(t);if(!isMobile())setTab('lib')}else setTool(t)});
 $$('#tabs button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
