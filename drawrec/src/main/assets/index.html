@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Board Recorder</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{margin:0;height:100%;background:#10151c;color:#eef2f7;font:14px system-ui,-apple-system,Roboto,sans-serif;overflow:hidden;overscroll-behavior:none}
+#app{display:flex;height:100%;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+#tools{display:grid;grid-template-columns:repeat(2,44px);grid-auto-rows:44px;gap:4px;padding:6px;align-content:start;overflow-y:auto;background:#171e28;border-right:1px solid #263142}
+#ctl{display:flex;flex-direction:column;gap:6px;padding:6px;width:62px;align-items:stretch;background:#171e28;border-left:1px solid #263142;overflow-y:auto}
+#stage{flex:1;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;position:relative;background:#0a0d12}
+canvas{touch-action:none;background:#fff;box-shadow:0 0 0 1px #000,0 4px 24px #0008}
+button{font:inherit;color:#eef2f7;background:#222c3a;border:1px solid #2f3c50;border-radius:10px;padding:0;min-height:44px;cursor:pointer;font-size:19px}
+button.on{background:#3b82f6;border-color:#3b82f6}
+button.sm{font-size:12px}
+#rec{background:#d93a3a;border-color:#d93a3a;font-size:12px;font-weight:700;min-height:52px}
+#rec.live{background:#fff;color:#d93a3a}
+#timer{text-align:center;font:700 13px ui-monospace,monospace;color:#9fb0c7}
+#timer.live{color:#ff6b6b}
+#meter{height:6px;border-radius:4px;background:#0a0d12;overflow:hidden}#meter i{display:block;height:100%;width:0;background:#4ade80}
+#cd{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:96px;font-weight:800;color:#fff;text-shadow:0 2px 20px #000;background:#0006}
+.dot{width:22px;height:22px;border-radius:50%;margin:auto;border:2px solid #fff}
+.modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:20;padding:10px}
+.sheet{background:#171e28;border:1px solid #2f3c50;border-radius:16px;padding:14px;max-width:520px;width:100%;max-height:96vh;overflow:auto}
+.sheet h3{margin:0 0 10px}
+.pal{display:flex;flex-wrap:wrap;gap:8px}.pal b{width:34px;height:34px;border-radius:50%;border:2px solid #fff3;cursor:pointer}.pal b.on{border-color:#fff}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+input[type=range]{flex:1;min-width:120px}
+.bgs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.bgs button{font-size:13px;min-height:48px}
+.pri{background:#3b82f6;border-color:#3b82f6}
+video{width:100%;border-radius:10px;background:#000;max-height:50vh}
+#toast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);background:#000c;padding:8px 14px;border-radius:20px;display:none;z-index:30;font-size:13px}
+@media (orientation:portrait){#app{flex-direction:column}#tools{grid-template-columns:repeat(7,44px);border-right:0;border-bottom:1px solid #263142;order:0}#stage{order:1}#ctl{order:2;flex-direction:row;width:auto;border-left:0;border-top:1px solid #263142;align-items:center}#ctl>*{flex:1}}
+</style></head><body>
+<div id="app">
+<div id="tools">
+ <button data-t="pen" class="on" title="Pen">✏️</button><button data-t="hl" title="Highlighter">🖍️</button>
+ <button data-t="er" title="Eraser">🧽</button><button data-t="laser" title="Laser pointer">🔴</button>
+ <button data-t="line" title="Line">╱</button><button data-t="arrow" title="Arrow">➚</button>
+ <button data-t="rect" title="Rectangle">▭</button><button data-t="ell" title="Ellipse">◯</button>
+ <button id="bUndo" title="Undo">↶</button><button id="bRedo" title="Redo">↷</button>
+ <button id="bColor" title="Color & size"><div class="dot" id="cdot"></div></button><button id="bBg" title="Background">🖼️</button>
+ <button id="bPg" class="sm" title="Pages">1/1</button><button id="bClr" title="Clear page">🗑️</button>
+</div>
+<div id="stage"><canvas id="board" width="1280" height="720"></canvas><div id="cd"></div></div>
+<div id="ctl">
+ <button id="rec">● REC</button>
+ <button id="pause" class="sm" style="display:none">⏸ Pause</button>
+ <div id="timer">00:00</div><div id="meter"><i></i></div>
+ <button id="mic" class="sm on">🎤 Mic</button>
+ <button id="snap" class="sm">📷 PNG</button>
+</div>
+</div>
+<div id="toast"></div>
+<input type="file" id="fimg" accept="image/*" hidden>
+<script>
+const $=s=>document.querySelector(s);
+const W=1280,H=720,board=$('#board'),c=board.getContext('2d');
+const mk=()=>{const x=document.createElement('canvas');x.width=W;x.height=H;return x};
+const inkC=mk(),ink=inkC.getContext('2d'),tmpC=mk(),tmp=tmpC.getContext('2d');
+const IN_APK=!!(window.Android&&window.Android.startVideo);
+let tool='pen',color='#111111',size=4,pages=[{strokes:[],redo:[],bg:'white'}],pi=0,cur=null,laser=[],micOn=true;
+const P=()=>pages[pi];
+const COLORS=['#111111','#ffffff','#e53935','#fb8c00','#fdd835','#43a047','#1e88e5','#8e24aa','#6d4c41','#00acc1'];
+
+/* ---------- layout ---------- */
+function fit(){const st=$('#stage'),w=st.clientWidth,h=st.clientHeight,r=Math.min(w/W,h/H);board.style.width=W*r+'px';board.style.height=H*r+'px'}
+addEventListener('resize',fit);new ResizeObserver(fit).observe($('#stage'));fit();
+function toast(m,t=2500){const e=$('#toast');e.textContent=m;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',t)}
+
+/* ---------- drawing ---------- */
+function paintBg(g,p){const b=p.bg;g.save();g.setTransform(1,0,0,1,0,0);
+  const fills={white:'#ffffff',black:'#14171c',green:'#1f4d3a',grid:'#ffffff',lines:'#fffef6',dgrid:'#14171c'};
+  g.fillStyle=fills[b]||'#fff';g.fillRect(0,0,W,H);
+  if(b==='grid'||b==='dgrid'){g.strokeStyle=b==='grid'?'#d6dde8':'#2b3340';g.lineWidth=1;g.beginPath();for(let x=0;x<=W;x+=40){g.moveTo(x,0);g.lineTo(x,H)}for(let y=0;y<=H;y+=40){g.moveTo(0,y);g.lineTo(W,y)}g.stroke()}
+  if(b==='lines'){g.strokeStyle='#bcd0ea';g.lineWidth=1;g.beginPath();for(let y=60;y<=H;y+=48){g.moveTo(0,y);g.lineTo(W,y)}g.stroke();g.strokeStyle='#e8a0a0';g.beginPath();g.moveTo(90,0);g.lineTo(90,H);g.stroke()}
+  if(b&&b.img){g.fillStyle='#fff';g.fillRect(0,0,W,H);const im=b.img,s=Math.min(W/im.width,H/im.height),w=im.width*s,h=im.height*s;g.drawImage(im,(W-w)/2,(H-h)/2,w,h)}
+  g.restore()}
+function pathStroke(g,s){g.lineCap='round';g.lineJoin='round';g.lineWidth=s.w;g.strokeStyle=g.fillStyle=s.col;const p=s.pts;
+  if(s.t==='pen'||s.t==='hl'||s.t==='er'){
+    if(p.length===1){g.beginPath();g.arc(p[0][0],p[0][1],s.w/2,0,7);g.fill();return}
+    g.beginPath();g.moveTo(p[0][0],p[0][1]);
+    for(let i=1;i<p.length-1;i++){g.quadraticCurveTo(p[i][0],p[i][1],(p[i][0]+p[i+1][0])/2,(p[i][1]+p[i+1][1])/2)}
+    g.lineTo(p[p.length-1][0],p[p.length-1][1]);g.stroke();return}
+  const a=p[0],b=p[p.length-1];g.beginPath();
+  if(s.t==='line'||s.t==='arrow'){g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);
+    if(s.t==='arrow'){const an=Math.atan2(b[1]-a[1],b[0]-a[0]),L=14+s.w*2;[2.6,-2.6].forEach(d=>{g.moveTo(b[0],b[1]);g.lineTo(b[0]+L*Math.cos(an+d*0.55),b[1]+L*Math.sin(an+d*0.55))})}}
+  else if(s.t==='rect')g.rect(Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.abs(b[0]-a[0]),Math.abs(b[1]-a[1]));
+  else if(s.t==='ell')g.ellipse((a[0]+b[0])/2,(a[1]+b[1])/2,Math.abs(b[0]-a[0])/2||1,Math.abs(b[1]-a[1])/2||1,0,0,7);
+  g.stroke()}
+function commit(s){
+  if(s.t==='er'){ink.globalCompositeOperation='destination-out';pathStroke(ink,s);ink.globalCompositeOperation='source-over';return}
+  tmp.clearRect(0,0,W,H);pathStroke(tmp,s);ink.globalAlpha=s.t==='hl'?0.4:1;ink.drawImage(tmpC,0,0);ink.globalAlpha=1}
+function replay(){ink.clearRect(0,0,W,H);P().strokes.forEach(commit)}
+function compose(){
+  paintBg(c,P());c.drawImage(inkC,0,0);
+  if(cur&&cur.t!=='er'){tmp.clearRect(0,0,W,H);pathStroke(tmp,cur);c.globalAlpha=cur.t==='hl'?0.4:1;c.drawImage(tmpC,0,0);c.globalAlpha=1}
+  const now=performance.now();laser=laser.filter(q=>now-q.t<800);
+  if(laser.length){c.save();c.lineCap=c.lineJoin='round';for(let i=1;i<laser.length;i++){const a=laser[i-1],b=laser[i],f=1-(now-b.t)/800;
+    c.strokeStyle=`rgba(255,40,40,${0.25*f})`;c.lineWidth=18*f+4;c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.stroke();
+    c.strokeStyle=`rgba(255,120,120,${f})`;c.lineWidth=6*f+1;c.stroke()}
+    const l=laser[laser.length-1];c.fillStyle='rgba(255,60,60,.95)';c.beginPath();c.arc(l.x,l.y,9,0,7);c.fill();c.restore()}}
+let raf=0;function need(){if(!raf)raf=requestAnimationFrame(()=>{raf=0;compose();if(laser.length||recActive())need()})}
+const pos=e=>{const r=board.getBoundingClientRect();return [(e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height]};
+const widthFor=()=>tool==='hl'?size*4:tool==='er'?size*4+6:size;
+board.addEventListener('pointerdown',e=>{e.preventDefault();board.setPointerCapture(e.pointerId);const p=pos(e);
+  if(tool==='laser'){laser.push({x:p[0],y:p[1],t:performance.now()});need();cur={t:'laser'};return}
+  cur={t:tool,col:color,w:widthFor(),pts:[p]};need()});
+board.addEventListener('pointermove',e=>{if(!cur)return;const p=pos(e);
+  if(cur.t==='laser'){laser.push({x:p[0],y:p[1],t:performance.now()});need();return}
+  if(['line','arrow','rect','ell'].includes(cur.t))cur.pts=[cur.pts[0],p];else{const l=cur.pts[cur.pts.length-1];if(Math.hypot(p[0]-l[0],p[1]-l[1])>1.2)cur.pts.push(p)}
+  if(cur.t==='er'){ink.globalCompositeOperation='destination-out';pathStroke(ink,cur);ink.globalCompositeOperation='source-over'}
+  need()});
+function up(){if(!cur)return;const s=cur;cur=null;if(s.t==='laser'){need();return}
+  if(s.t!=='er'){commit(s)}else{}
+  if(s.pts.length===1&&['line','arrow','rect','ell'].includes(s.t)){need();return}
+  P().strokes.push(s);P().redo=[];if(s.t==='er')replay();need()}
+board.addEventListener('pointerup',up);board.addEventListener('pointercancel',up);
+board.addEventListener('contextmenu',e=>e.preventDefault());
+
+/* ---------- toolbar ---------- */
+document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tool=b.dataset.t;document.querySelectorAll('[data-t]').forEach(x=>x.classList.toggle('on',x===b))});
+$('#bUndo').onclick=()=>{const s=P().strokes.pop();if(s){P().redo.push(s);replay();need()}};
+$('#bRedo').onclick=()=>{const s=P().redo.pop();if(s){P().strokes.push(s);commit(s);need()}};
+function dot(){$('#cdot').style.background=color}dot();
+function sheet(html,mount){closeSheet();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div class="sheet">'+html+'</div>';m.onclick=e=>{if(e.target===m)closeSheet()};document.body.appendChild(m);mount&&mount(m)}
+function closeSheet(){const m=$('#modal');if(m){const v=m.querySelector('video');if(v)v.pause();m.remove();return true}return false}
+$('#bColor').onclick=()=>sheet(`<h3>Color & size</h3><div class="pal">${COLORS.map(x=>`<b data-c="${x}" class="${x===color?'on':''}" style="background:${x}"></b>`).join('')}</div>
+ <div class="row"><input type="color" id="cc" value="${color}" style="width:50px;height:38px;border:0;background:none"><input type="range" id="sz" min="1" max="24" value="${size}"><b id="szv">${size}</b></div>
+ <div class="row"><button class="pri" style="padding:0 18px" onclick="closeSheet()">Done</button></div>`,m=>{
+  m.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{color=b.dataset.c;dot();m.querySelectorAll('[data-c]').forEach(x=>x.classList.toggle('on',x===b));$('#cc').value=color});
+  $('#cc').oninput=e=>{color=e.target.value;dot()};$('#sz').oninput=e=>{size=+e.target.value;$('#szv').textContent=size}});
+const BGS=[['white','White'],['black','Black'],['green','Green board'],['grid','Grid'],['dgrid','Dark grid'],['lines','Ruled']];
+$('#bBg').onclick=()=>sheet(`<h3>Background</h3><div class="bgs">${BGS.map(b=>`<button data-b="${b[0]}">${b[1]}</button>`).join('')}<button id="bImg" class="pri">Import image / slide…</button></div>`,m=>{
+  m.querySelectorAll('[data-b]').forEach(b=>b.onclick=()=>{P().bg=b.dataset.b;closeSheet();need()});$('#bImg').onclick=()=>$('#fimg').click()});
+$('#fimg').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const im=new Image();im.onload=()=>{P().bg={img:im};closeSheet();need()};im.onerror=()=>toast('Could not open that image');im.src=URL.createObjectURL(f)};
+function pgLabel(){$('#bPg').textContent=(pi+1)+'/'+pages.length}
+function go(i){pi=i;replay();pgLabel();need()}
+$('#bPg').onclick=()=>sheet(`<h3>Pages (${pi+1} of ${pages.length})</h3><div class="row"><button class="sm" style="padding:0 16px" id="pp">‹ Prev</button><button class="sm" style="padding:0 16px" id="pn">Next ›</button><button class="sm pri" style="padding:0 16px" id="pa">+ New page</button><button class="sm" style="padding:0 16px" id="pd">Delete page</button></div>`,()=>{
+  $('#pp').onclick=()=>{if(pi>0){go(pi-1);closeSheet()}};$('#pn').onclick=()=>{if(pi<pages.length-1){go(pi+1);closeSheet()}};
+  $('#pa').onclick=()=>{pages.splice(pi+1,0,{strokes:[],redo:[],bg:P().bg});go(pi+1);closeSheet()};
+  $('#pd').onclick=()=>{if(pages.length>1){pages.splice(pi,1);go(Math.min(pi,pages.length-1))}else{P().strokes=[];P().redo=[];go(0)}closeSheet()}});
+$('#bClr').onclick=()=>sheet(`<h3>Clear this page?</h3><div class="row"><button style="padding:0 18px" onclick="closeSheet()">Cancel</button><button class="pri" style="padding:0 18px" id="cy">Clear</button></div>`,()=>$('#cy').onclick=()=>{P().strokes=[];P().redo=[];replay();need();closeSheet()});
+
+/* ---------- saving helpers ---------- */
+const stamp=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())};
+function b64(u8){let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s)}
+$('#snap').onclick=()=>{compose();board.toBlob(async b=>{const name='board-'+stamp()+'.png';
+  if(window.Android&&Android.saveFile){Android.saveFile(name,'image/png',b64(new Uint8Array(await b.arrayBuffer())));return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();toast('PNG saved')},'image/png')};
+
+/* ---------- recording ---------- */
+let rec=null,recStream=null,micStream=null,chunks=[],writeQ=Promise.resolve(),t0=0,accum=0,tick=null,mime='',actx=null,mraf=0,recName='';
+const recActive=()=>!!rec&&rec.state!=='inactive';
+function pickMime(){return ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm'].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||''}
+$('#mic').onclick=()=>{if(recActive()){toast('Change the mic before you start recording');return}micOn=!micOn;$('#mic').classList.toggle('on',micOn);$('#mic').textContent=micOn?'🎤 Mic':'🔇 No mic'};
+function fmt(s){s=Math.floor(s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function elapsed(){return accum+(rec&&rec.state==='recording'?(performance.now()-t0)/1000:0)}
+function meter(stream){try{actx=new (window.AudioContext||window.webkitAudioContext)();const an=actx.createAnalyser();an.fftSize=512;actx.createMediaStreamSource(stream).connect(an);const buf=new Uint8Array(an.fftSize);
+  const loop=()=>{if(!actx)return;an.getByteTimeDomainData(buf);let m=0;for(const v of buf)m=Math.max(m,Math.abs(v-128));$('#meter i').style.width=Math.min(100,m*1.6)+'%';mraf=requestAnimationFrame(loop)};loop()}catch(e){}}
+async function countdown(){const el=$('#cd');el.style.display='flex';for(let n=3;n>0;n--){el.textContent=n;await new Promise(r=>setTimeout(r,800))}el.style.display='none'}
+async function startRec(){
+  if(!window.MediaRecorder||!board.captureStream){toast('Recording is not supported on this device');return}
+  mime=pickMime();
+  let ms=null;
+  if(micOn){try{ms=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}})}catch(e){micOn=false;$('#mic').classList.remove('on');$('#mic').textContent='🔇 No mic';toast('Microphone not allowed — recording without sound',4000)}}
+  await countdown();
+  recStream=board.captureStream(30);micStream=ms;if(ms){ms.getAudioTracks().forEach(t=>recStream.addTrack(t));meter(ms)}
+  const ext=mime.includes('mp4')?'mp4':'webm';recName='lecture-'+stamp()+'.'+ext;chunks=[];writeQ=Promise.resolve();
+  if(IN_APK&&!Android.startVideo(recName,mime.split(';')[0]||'video/'+ext)){toast('Could not create the video file');cleanup();return}
+  try{rec=new MediaRecorder(recStream,Object.assign({videoBitsPerSecond:4e6,audioBitsPerSecond:128e3},mime?{mimeType:mime}:{}))}catch(e){toast('Could not start recording');cleanup();return}
+  rec.ondataavailable=e=>{if(!e.data||!e.data.size)return;if(IN_APK){writeQ=writeQ.then(async()=>{Android.chunk(b64(new Uint8Array(await e.data.arrayBuffer())))})}else chunks.push(e.data)};
+  rec.onstop=finishRec;rec.start(1000);t0=performance.now();accum=0;
+  $('#rec').textContent='■ STOP';$('#rec').classList.add('live');$('#pause').style.display='';$('#pause').textContent='⏸ Pause';$('#timer').classList.add('live');
+  tick=setInterval(()=>$('#timer').textContent=fmt(elapsed()),300);need()}
+function cleanup(){clearInterval(tick);cancelAnimationFrame(mraf);if(actx){actx.close().catch(()=>{});actx=null}$('#meter i').style.width='0';
+  [recStream,micStream].forEach(s=>s&&s.getTracks().forEach(t=>t.stop()));recStream=micStream=null;
+  $('#rec').textContent='● REC';$('#rec').classList.remove('live');$('#pause').style.display='none';$('#timer').classList.remove('live')}
+async function finishRec(){const dur=elapsed();cleanup();$('#timer').textContent='00:00';
+  if(IN_APK){await writeQ;const where=Android.finishVideo();sheet(`<h3>Lecture saved ✓</h3><p>${fmt(dur)} recorded.<br>Saved as <b>${recName}</b> in <b>${where||'Movies/BoardRecorder'}</b>.</p><div class="row"><button class="pri" style="padding:0 18px" onclick="closeSheet()">OK</button></div>`);return}
+  const blob=new Blob(chunks,{type:mime.split(';')[0]||'video/webm'}),url=URL.createObjectURL(blob);
+  sheet(`<h3>Recording ready</h3><video src="${url}" controls playsinline></video><div class="row"><a id="dl" download="${recName}" href="${url}"><button class="pri" style="padding:0 18px">Download ${(blob.size/1048576).toFixed(1)} MB</button></a><button style="padding:0 18px" onclick="closeSheet()">Close</button></div>`)}
+$('#rec').onclick=()=>{if(recActive()){rec.stop();}else startRec()};
+$('#pause').onclick=()=>{if(!recActive())return;if(rec.state==='recording'){accum=elapsed();rec.pause();$('#pause').textContent='▶ Resume';$('#timer').classList.remove('live')}else{rec.resume();t0=performance.now();$('#pause').textContent='⏸ Pause';$('#timer').classList.add('live')}};
+window.__back=()=>{if(closeSheet())return true;return false};
+replay();pgLabel();compose();
+</script></body></html>

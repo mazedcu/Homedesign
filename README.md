@@ -14,3 +14,7 @@ Local build: `gradle :app:assembleDebug` (needs Android SDK).
 ## Akhirah Planner (second app)
 
 `akhirah/` is a separate Android app (`com.mazedcu.akhirah`): Salah, daily targets, debts, Huquq al-Ibad and life goals. Fully offline; data stays on the phone. Backups export to Downloads/Akhirah. The same workflow builds it — grab **Akhirah.apk** from Releases.
+
+## Board Recorder (third app)
+
+`drawrec/` (`com.mazedcu.drawrec`) is a whiteboard for video lectures: draw with pen/highlighter/shapes/laser, multiple pages and backgrounds, and record the board plus microphone audio to a video in Movies/BoardRecorder. Grab **BoardRecorder.apk** from Releases.
