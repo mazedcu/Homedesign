@@ -90,7 +90,7 @@ async function initDb(){
 
 /* ---------- dialogs ---------- */
 function sheet(html,onMount){closeSheet();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div class="sheet">'+html+'</div>';m.addEventListener('click',e=>{if(e.target===m)closeSheet()});document.body.appendChild(m);view=1;onMount&&onMount(m)}
-function closeSheet(){const m=$('#modal');if(m)m.remove();view=null}
+function closeSheet(){const m=$('#modal');if(m){m.remove();view=null;render()}else view=null}
 function form(title,fields,onOk,opts={}){
   const h=fields.map(f=>{const v=f.v==null?'':f.v;let inp;
     if(f.t==='area')inp=`<textarea id="f_${f.k}">${esc(v)}</textarea>`;
