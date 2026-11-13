@@ -15,16 +15,26 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.9' }
       - name: Build debug APK
-        run: gradle :app:assembleDebug --no-daemon
+        run: gradle :app:assembleDebug :akhirah:assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: Planora-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Rename APKs
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk Planora.apk
+          cp akhirah/build/outputs/apk/debug/akhirah-debug.apk Akhirah.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Akhirah-debug-apk
+          path: Akhirah.apk
       - name: Publish to Releases
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Planora (latest APK)
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: |
+            Planora.apk
+            Akhirah.apk
         env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
