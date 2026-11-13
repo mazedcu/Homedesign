@@ -11,9 +11,9 @@ Export (PNG, PDF, OBJ, JSON) saves to Downloads/Planora on the phone.
 
 Local build: `gradle :app:assembleDebug` (needs Android SDK).
 
-## Akhirah Planner (second app)
+## Life App (second app)
 
-`akhirah/` is a separate Android app (`com.mazedcu.akhirah`): Salah, daily targets, debts, Huquq al-Ibad and life goals. Fully offline; data stays on the phone. Backups export to Downloads/Akhirah. The same workflow builds it — grab **Akhirah.apk** from Releases.
+`akhirah/` is a separate Android app (`com.mazedcu.akhirah`): Salah, daily targets, debts, Huquq al-Ibad and life goals. Fully offline; data stays on the phone. Backups export to Downloads/LifeApp. The same workflow builds it — grab **LifeApp.apk** from Releases.
 
 ## Board Recorder (third app)
 

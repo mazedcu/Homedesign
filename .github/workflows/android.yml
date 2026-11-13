@@ -23,12 +23,12 @@ jobs:
       - name: Rename APKs
         run: |
           cp app/build/outputs/apk/debug/app-debug.apk Planora.apk
-          cp akhirah/build/outputs/apk/debug/akhirah-debug.apk Akhirah.apk
+          cp akhirah/build/outputs/apk/debug/akhirah-debug.apk LifeApp.apk
           cp drawrec/build/outputs/apk/debug/drawrec-debug.apk BoardRecorder.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Akhirah-debug-apk
-          path: Akhirah.apk
+          name: LifeApp-debug-apk
+          path: LifeApp.apk
       - uses: actions/upload-artifact@v4
         with:
           name: BoardRecorder-debug-apk
@@ -41,6 +41,6 @@ jobs:
           name: Planora (latest APK)
           files: |
             Planora.apk
-            Akhirah.apk
+            LifeApp.apk
             BoardRecorder.apk
         env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }

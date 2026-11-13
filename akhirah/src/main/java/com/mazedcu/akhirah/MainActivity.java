@@ -38,11 +38,11 @@ public class MainActivity extends Activity {
                     ContentValues v = new ContentValues();
                     v.put(MediaStore.Downloads.DISPLAY_NAME, name);
                     v.put(MediaStore.Downloads.MIME_TYPE, mime);
-                    v.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Akhirah");
+                    v.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/LifeApp");
                     Uri u = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
                     OutputStream o = getContentResolver().openOutputStream(u);
                     o.write(data); o.close();
-                    where = "Downloads/Akhirah";
+                    where = "Downloads/LifeApp";
                 } else {
                     File d = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
                     File f = new File(d, name);

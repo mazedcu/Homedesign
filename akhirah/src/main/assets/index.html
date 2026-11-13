@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>Akhirah Planner</title>
+<html lang="en"><head><meta charset="utf-8"><title>Life App</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>
 :root{--bg:#0e1a16;--card:#162821;--card2:#1d3329;--ink:#eef3ee;--mut:#93a79c;--gold:#d9b45a;--grn:#4fbf8a;--red:#e2685f;--line:#2a4337}
@@ -47,6 +47,8 @@ textarea{min-height:64px;resize:vertical}
 .empty{text-align:center;color:var(--mut);padding:26px 10px}
 .ayah{font-size:12.5px;color:var(--mut);font-style:italic;text-align:center;margin:14px 8px}
 .ring{width:64px;height:64px;flex:none}
+.mx{display:grid;grid-template-columns:22px 1fr 1fr;gap:6px;margin-bottom:10px}.ax{text-align:center;font-size:11.5px;color:var(--mut);font-weight:600}.ay{writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;font-size:11.5px;color:var(--mut);font-weight:600}.qc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;min-height:110px}.qh{font-size:12px;font-weight:700;margin-bottom:4px}
+nav button{font-size:10px!important}nav button b{font-size:18px!important}
 </style></head><body><div id="app"></div>
 <script>
 const $=s=>document.querySelector(s);
@@ -58,14 +60,14 @@ const dkey=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const today=()=>dkey(new Date());
 const daysAgo=n=>{const d=new Date();d.setDate(d.getDate()-n);return dkey(d)};
 const money=n=>(Math.round(n*100)/100).toLocaleString(undefined,{maximumFractionDigits:2});
-let S={salah:{},qaza:{fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0},debts:[],huquq:[],goals:[],targets:[{id:'quran',name:'Quran reading',unit:'pages',goal:2,step:1}],tlog:{},drive:{on:false}};
+let S={salah:{},qaza:{fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0},debts:[],huquq:[],goals:[],targets:[{id:'quran',name:'Quran reading',unit:'pages',goal:2,step:1}],tlog:{},todos:[],drive:{on:false}};
 let tab='home',view=null,sampleFn=null,dbDoc=null,syncNote='';
 const LS='akhirah_v1';
 
 /* ---------- persistence ---------- */
 function lsSave(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
 function lsLoad(){try{const t=localStorage.getItem(LS);return t?JSON.parse(t):null}catch(e){return null}}
-function norm(o){o=o||{};if(!o.drive)o.drive={on:false};if(!o.targets)o.targets=[{id:'quran',name:'Quran reading',unit:'pages',goal:2,step:1}];if(!o.tlog)o.tlog={};if(o.salah)for(const k in o.salah)for(const p in o.salah[k]){const v=o.salah[k][p];if(v==='d')o.salah[k][p]='a';else if(v==='m')delete o.salah[k][p]}const d={salah:{},qaza:{fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0},debts:[],huquq:[],goals:[],targets:[],tlog:{}};return Object.assign(d,o)}
+function norm(o){o=o||{};if(!o.drive)o.drive={on:false};if(!o.targets)o.targets=[{id:'quran',name:'Quran reading',unit:'pages',goal:2,step:1}];if(!o.tlog)o.tlog={};if(!o.todos)o.todos=[];if(o.salah)for(const k in o.salah)for(const p in o.salah[k]){const v=o.salah[k][p];if(v==='d')o.salah[k][p]='a';else if(v==='m')delete o.salah[k][p]}const d={salah:{},qaza:{fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0},debts:[],huquq:[],goals:[],targets:[],tlog:{},todos:[]};return Object.assign(d,o)}
 let saveT=null,saving=false,dirty=false;
 function save(){lsSave();dirty=true;schedDrive();if(!dbDoc)return;clearTimeout(saveT);saveT=setTimeout(flush,700)}
 async function flush(){if(saving||!dbDoc||!dirty)return;saving=true;dirty=false;try{await dbDoc.set({data:JSON.stringify(S),at:Date.now()});syncNote='Saved privately to your account'}catch(e){syncNote='Saved on this device only'}saving=false;if(dirty)flush()}
@@ -113,6 +115,22 @@ function goalProg(g){let t=0,d=0;(g.ms||[]).forEach(m=>{if(m.tasks&&m.tasks.leng
 function daysTo(s){if(!s)return null;const a=new Date(s+'T00:00:00'),b=new Date(today()+'T00:00:00');return Math.round((a-b)/864e5)}
 function dueTxt(s){const n=daysTo(s);if(n==null)return '';return n<0?`<span class="pill r">${-n}d overdue</span>`:n===0?'<span class="pill y">due today</span>':`<span class="pill">in ${n}d</span>`}
 
+/* ---------- to-do (Eisenhower matrix) ---------- */
+const Q=[[1,'Important · Urgent','Do first','#e2685f'],[2,'Important · Not urgent','Schedule','#4fbf8a'],[3,'Not important · Urgent','Quick / delegate','#d9b45a'],[4,'Not important · Not urgent','Later / drop','#6fa8dc']];
+function matrix(compact){
+  const cell=q=>{const l=S.todos.filter(t=>t.q===q[0]),p=l.filter(t=>!t.done),d=l.length-p.length;
+    return `<div class="qc" style="border-top:3px solid ${q[3]}"><div class="qh" style="color:${q[3]}">${q[2]}</div>${p.length?p.map(t=>`<label class="chk" style="padding:3px 0"><input type="checkbox" onchange="tgTodo('${t.id}')"><span style="font-size:13px">${esc(t.t)}</span></label>`).join(''):'<div class="sub" style="padding:4px 0">—</div>'}${d?`<div class="sub">✓ ${d} done</div>`:''}</div>`};
+  return `<div class="mx"><div></div><div class="ax">Urgent</div><div class="ax">Not urgent</div>
+  <div class="ay">Important</div>${cell(Q[0])}${cell(Q[1])}<div class="ay">Not important</div>${cell(Q[2])}${cell(Q[3])}</div>`}
+function vTodo(){
+  const sec=q=>{const l=S.todos.filter(t=>t.q===q[0]).sort((a,b)=>a.done-b.done);
+    return `<div class="card" style="border-left:4px solid ${q[3]}"><div class="row sp"><b style="color:${q[3]}">${q[1]}</b><span class="pill">${q[2]}</span></div>${l.length?l.map(t=>`<div class="chk ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="tgTodo('${t.id}')"><span>${esc(t.t)}</span><button class="ghost sm" onclick="editTodo('${t.id}')">⋯</button></div>`).join(''):'<div class="sub" style="padding:6px 0">Nothing here</div>'}</div>`};
+  return `<div class="sub" style="margin:0 2px 8px">Sort every task by importance and urgency. Do the red box first, plan the green box, and keep the others small.</div>${Q.map(sec).join('')}`}
+function todoForm(t){return [{k:'t',l:'Task',v:t.t,req:1},{k:'q',l:'Category',t:'sel',o:Q.map(q=>[q[0],q[1]]),v:t.q||1}]}
+function addTodo(){form('New to-do',todoForm({}),o=>{S.todos.push({id:uid(),t:o.t,q:+o.q,done:false});save();render()})}
+function editTodo(id){const t=S.todos.find(x=>x.id===id);form('Edit to-do',todoForm(t),o=>{t.t=o.t;t.q=+o.q;save();render()},{del:()=>{S.todos=S.todos.filter(x=>x.id!==id);save();render()}})}
+function tgTodo(id){const t=S.todos.find(x=>x.id===id);t.done=!t.done;save();setTimeout(render,150)}
+
 /* ---------- daily targets ---------- */
 const tv=(id,d)=>((S.tlog[d]||{})[id])||0;
 function tStreak(t){let n=0,i=tv(t.id,today())>=t.goal?0:1;while(tv(t.id,daysAgo(i))>=t.goal&&i<400){n++;i++}return n}
@@ -140,6 +158,7 @@ function vHome(){
   const gp=S.goals.length?S.goals.reduce((a,g)=>a+goalProg(g),0)/S.goals.length:0;
   const od=S.debts.filter(d=>d.type==='owe'&&debtLeft(d)>0&&d.due&&daysTo(d.due)<0).length;
   return `<div class="card row">${ring(done*20,'#4fbf8a')}<div><div class="big">${done}/5 prayers</div><div class="sub">Today · streak ${streak()} day${streak()==1?'':'s'} · qaza owed ${qazaTotal()}</div></div></div>
+  <div class="row sp" style="margin:4px 2px 6px"><b>To-do matrix</b><button class="sm" onclick="go('todo')">Open</button></div>${matrix()}
   <div class="card row" onclick="go('daily')"><div class="big">${tDoneToday()}/${S.targets.length}</div><div><b>Daily targets</b><div class="sub">${S.targets.length?S.targets.map(t=>esc(t.name)).slice(0,3).join(' · '):'Add targets like Quran reading'}</div></div></div>
   <div class="grid">
   <div class="card" onclick="go('debts')"><div class="sub">Debts I owe</div><div class="big" style="color:${owe?'var(--red)':'var(--grn)'}">${money(owe)}</div><div class="sub">${od?od+' overdue':owe?'pay early if you can':'all clear'}</div></div>
@@ -219,7 +238,6 @@ async function aiBreak(){const g=G(),b=$('#aiBtn'),msg=$('#aiMsg');b.disabled=tr
 const DRV='Google Drive';let driveBusy=false,dTimer=null,driveErr='';
 function hashS(){const o=Object.assign({},S);delete o.drive;const t=JSON.stringify(o);let h=0;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return h+':'+t.length}
 function idOf(p){if(typeof p==='string'){try{p=JSON.parse(p)}catch(e){return null}}if(!p||typeof p!=='object')return null;if(p.id)return p.id;if(p.file&&p.file.id)return p.file.id;const a=p.files||p.items;return Array.isArray(a)&&a[0]&&a[0].id?a[0].id:null}
-const IN_APK=!!(window.Android&&window.Android.saveFile);
 function errText(e){const c=e&&e.code;return c==='server_not_connected'||c==='server_not_found'?'Google Drive is not connected. Add it in Claude Settings → Connectors.':c==='needs_reauth'?'Reconnect Google Drive in Claude Settings → Connectors.':c==='not_in_manifest'||c==='approval_required'?'Drive access was not allowed. Tap “Back up now” and choose Allow.':c==='blocked_by_policy'?'Your organisation blocks Google Drive here.':c==='none'?'Drive backup works only inside the Claude app. Use Export backup here.':'Backup failed — it will try again later.'}
 function schedDrive(){const D=S.drive;if(!D||!D.on)return;clearTimeout(dTimer);const w=D.lastAt?Math.max(60000,D.lastAt+3*3600e3-Date.now()):60000;dTimer=setTimeout(()=>driveBackup(false),w)}
 async function driveBackup(manual){
@@ -229,11 +247,11 @@ async function driveBackup(manual){
   try{
     const mcp=await claude.use('mcp');if(!mcp)throw {code:'none'};
     if(!D.folderId){
-      const r=await mcp.callTool(DRV,'search_files',{query:"title = 'Akhirah Planner Backups' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",excludeContentSnippets:true});
+      const r=await mcp.callTool(DRV,'search_files',{query:"title = 'Life App Backups' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",excludeContentSnippets:true});
       let id=idOf(r.payload);
-      if(!id){const c=await mcp.callTool(DRV,'create_file',{title:'Akhirah Planner Backups',mimeType:'application/vnd.google-apps.folder'});id=idOf(c.payload)}
+      if(!id){const c=await mcp.callTool(DRV,'create_file',{title:'Life App Backups',mimeType:'application/vnd.google-apps.folder'});id=idOf(c.payload)}
       if(!id)throw {code:'x'};D.folderId=id}
-    const n=new Date(),day=dkey(n),title='Akhirah backup '+day+' '+pad(n.getHours())+'-'+pad(n.getMinutes())+'.json';
+    const n=new Date(),day=dkey(n),title='Life App backup '+day+' '+pad(n.getHours())+'-'+pad(n.getMinutes())+'.json';
     const c=await mcp.callTool(DRV,'create_file',{title,textContent:JSON.stringify(S),contentMimeType:'application/json',disableConversionToGoogleType:true,parentId:D.folderId});
     const nid=idOf(c.payload);
     if(nid&&D.lastId&&D.lastDay===day){try{await mcp.callTool(DRV,'trash_file',{fileId:D.lastId})}catch(e){}}
@@ -247,17 +265,17 @@ function driveStatus(){const D=S.drive;if(driveErr)return '<span style="color:va
 function settings(){sheet(`<h2 style="margin-top:0">Backup & data</h2><div class="sub" id="stat">${esc(syncNote||'Saved on this device')}</div>
 <div class="row" style="margin-top:12px;flex-wrap:wrap"><button id="ex">Export backup</button>
 <span style="position:relative;display:inline-block"><button style="pointer-events:none">Import from file</button><input type="file" id="fi" accept="*/*" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer"></span></div>
-<h2>Google Drive auto-backup</h2><div class="sub">Saves a copy to a “Akhirah Planner Backups” folder in your Drive after changes (at most every 3 hours, keeping one file per day). It runs while the app is open.</div><div class="sub" id="gd-st" style="margin:6px 0">${driveStatus()}</div><div class="row" style="flex-wrap:wrap"><button class="pri" id="gd-on">${S.drive.on?'Back up now':'Turn on'}</button>${S.drive.on?'<button id="gd-off">Turn off</button>':''}</div>
+<h2>Google Drive auto-backup</h2><div class="sub">Saves a copy to a “Life App Backups” folder in your Drive after changes (at most every 3 hours, keeping one file per day). It runs while the app is open.</div><div class="sub" id="gd-st" style="margin:6px 0">${driveStatus()}</div><div class="row" style="flex-wrap:wrap"><button class="pri" id="gd-on">${S.drive.on?'Back up now':'Turn on'}</button>${S.drive.on?'<button id="gd-off">Turn off</button>':''}</div>
 <label>Or paste backup text here</label><textarea id="pt" placeholder="Paste the contents of your backup file"></textarea>
 <div class="row" style="justify-content:space-between;margin-top:12px"><button id="pi">Import pasted text</button><button id="cl">Close</button></div>`,()=>{
   const st=m=>{$('#stat').textContent=m};
-  const load=txt=>{try{const o=JSON.parse(txt);if(!o||typeof o!=='object'||Array.isArray(o)||!('salah' in o||'debts' in o||'goals' in o||'huquq' in o||'targets' in o))throw 0;const keep=S.drive;S=norm(o);S.drive=keep;save();closeSheet();render()}catch(x){st('That does not look like an Akhirah backup.')}};
+  const load=txt=>{try{const o=JSON.parse(txt);if(!o||typeof o!=='object'||Array.isArray(o)||!('salah' in o||'debts' in o||'goals' in o||'huquq' in o||'targets' in o))throw 0;const keep=S.drive;S=norm(o);S.drive=keep;save();closeSheet();render()}catch(x){st('That does not look like an Life App backup.')}};
   $('#cl').onclick=closeSheet;
   $('#gd-on').onclick=async()=>{S.drive.on=true;save();$('#gd-st').textContent='Backing up…';await driveBackup(true);if(!driveErr)render()};
   if($('#gd-off'))$('#gd-off').onclick=()=>{S.drive.on=false;clearTimeout(dTimer);save();closeSheet();settings()};
   $('#pi').onclick=()=>{const t=$('#pt').value.trim();if(!t){st('Paste the backup text first.');return}load(t)};
   $('#fi').onchange=e=>{const f=e.target.files[0];if(!f)return;st('Reading '+f.name+'…');const r=new FileReader();r.onload=()=>load(String(r.result));r.onerror=()=>st('Could not read that file. Try pasting the text instead.');r.readAsText(f)};
-  $('#ex').onclick=async()=>{const data=JSON.stringify(S,null,1),name='akhirah-backup-'+today()+'.json';try{if(window.Android&&window.Android.saveFile){window.Android.saveFile(name,'application/json',btoa(unescape(encodeURIComponent(data))));st('Backup saved to Downloads/Akhirah.');return}const d=await claude.use('downloads');if(d){await d.save({filename:name,data});st('Backup saved.');return}}catch(e){}
+  $('#ex').onclick=async()=>{const data=JSON.stringify(S,null,1),name='lifeapp-backup-'+today()+'.json';try{if(window.Android&&window.Android.saveFile){window.Android.saveFile(name,'application/json',btoa(unescape(encodeURIComponent(data))));st('Backup saved to Downloads/LifeApp.');return}const d=await claude.use('downloads');if(d){await d.save({filename:name,data});st('Backup saved.');return}}catch(e){}
     try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));a.download=name;a.click()}catch(e){}
     $('#pt').value=data;st('Download unavailable — backup text placed below; copy it and keep it safe.')}})}
 
@@ -265,10 +283,10 @@ function settings(){sheet(`<h2 style="margin-top:0">Backup & data</h2><div class
 function go(t){tab=t;render();scrollTo(0,0)}
 function render(){
   if(view)return;
-  const T=[['home','🏠','Home'],['salah','🕌','Salah'],['daily','📖','Daily'],['debts','💰','Debts'],['huquq','🤝','Huquq'],['goals','🎯','Goals']];
-  const titles={daily:'Daily Targets',home:'Akhirah Planner',salah:'Salah',debts:'Debts',huquq:'Huquq al-Ibad',goals:'Life Goals',goal:'Life Goals'};
-  const body={daily:vDaily,home:vHome,salah:vSalah,debts:vDebts,huquq:vHuquq,goals:vGoals,goal:vGoal}[tab]();
-  const fab={daily:'addTarget()',debts:'addDebtMenu()',huquq:'addHuquq()',goals:'addGoal()'}[tab];
+  const T=[['home','🏠','Home'],['salah','🕌','Salah'],['daily','📖','Daily'],['todo','✅','To-do'],['debts','💰','Debts'],['huquq','🤝','Huquq'],['goals','🎯','Goals']];
+  const titles={todo:'To-do',daily:'Daily Targets',home:'Life App',salah:'Salah',debts:'Debts',huquq:'Huquq al-Ibad',goals:'Life Goals',goal:'Life Goals'};
+  const body={todo:vTodo,daily:vDaily,home:vHome,salah:vSalah,debts:vDebts,huquq:vHuquq,goals:vGoals,goal:vGoal}[tab]();
+  const fab={todo:'addTodo()',daily:'addTarget()',debts:'addDebtMenu()',huquq:'addHuquq()',goals:'addGoal()'}[tab];
   $('#app').innerHTML=`<header><div><h1>${titles[tab]}</h1><div class="sub">بسم الله · prepare for the meeting with your Lord</div></div><button class="ghost" onclick="settings()" aria-label="Backup">⚙︎</button></header>${body}${fab?`<button class="pri fab" onclick="${fab}">+</button>`:''}<nav>${T.map(t=>`<button class="${(tab===t[0]||(tab==='goal'&&t[0]==='goals'))?'on':''}" onclick="go('${t[0]}')"><b>${t[1]}</b>${t[2]}</button>`).join('')}</nav>`}
 function addDebtMenu(){sheet(`<h2 style="margin-top:0">Add</h2><div class="row" style="flex-direction:column;align-items:stretch"><button class="pri" id="d1">Debt I owe</button><button id="d2">Money owed to me</button><button id="d3">Cancel</button></div>`,()=>{$('#d1').onclick=()=>{closeSheet();addDebt('owe')};$('#d2').onclick=()=>{closeSheet();addDebt('owed')};$('#d3').onclick=closeSheet})}
 render();initDb();
