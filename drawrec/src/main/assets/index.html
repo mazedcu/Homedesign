@@ -21,7 +21,10 @@ button.sm{font-size:12px}
 .dot{width:22px;height:22px;border-radius:50%;margin:auto;border:2px solid #fff}
 .modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:20;padding:10px}
 .sheet{background:#171e28;border:1px solid #2f3c50;border-radius:16px;padding:14px;max-width:520px;width:100%;max-height:96vh;overflow:auto}
-.sheet h3{margin:0 0 10px}
+.sheet h3{margin:0 0 10px}.sheet.wide{max-width:900px}
+.vrow{display:flex;gap:8px;align-items:center;padding:9px 0;border-top:1px solid #263142}.vrow:first-of-type{border-top:0}.vrow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vrow button{min-height:38px;font-size:13px;padding:0 10px}
+.ed{display:flex;gap:12px;flex-wrap:wrap}.ed>div{flex:1;min-width:250px}.nud{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}.nud button{min-height:34px;font-size:12px;padding:0 8px}
+.pill{font:600 12px ui-monospace,monospace;color:#9fb0c7}
 .pal{display:flex;flex-wrap:wrap;gap:8px}.pal b{width:34px;height:34px;border-radius:50%;border:2px solid #fff3;cursor:pointer}.pal b.on{border-color:#fff}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
 input[type=range]{flex:1;min-width:120px}
@@ -48,6 +51,7 @@ video{width:100%;border-radius:10px;background:#000;max-height:50vh}
  <div id="timer">00:00</div><div id="meter"><i></i></div>
  <button id="mic" class="sm on">🎤 Mic</button>
  <button id="snap" class="sm">📷 PNG</button>
+ <button id="vid" class="sm" style="display:none">📁 Videos</button>
 </div>
 </div>
 <div id="toast"></div>
@@ -122,7 +126,7 @@ document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tool=b.dataset.t
 $('#bUndo').onclick=()=>{const s=P().strokes.pop();if(s){P().redo.push(s);replay();need()}};
 $('#bRedo').onclick=()=>{const s=P().redo.pop();if(s){P().strokes.push(s);commit(s);need()}};
 function dot(){$('#cdot').style.background=color}dot();
-function sheet(html,mount){closeSheet();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div class="sheet">'+html+'</div>';m.onclick=e=>{if(e.target===m)closeSheet()};document.body.appendChild(m);mount&&mount(m)}
+function sheet(html,mount,wide){closeSheet();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div class="sheet'+(wide?' wide':'')+'">'+html+'</div>';m.onclick=e=>{if(e.target===m)closeSheet()};document.body.appendChild(m);mount&&mount(m)}
 function closeSheet(){const m=$('#modal');if(m){const v=m.querySelector('video');if(v)v.pause();m.remove();return true}return false}
 $('#bColor').onclick=()=>sheet(`<h3>Color & size</h3><div class="pal">${COLORS.map(x=>`<b data-c="${x}" class="${x===color?'on':''}" style="background:${x}"></b>`).join('')}</div>
  <div class="row"><input type="color" id="cc" value="${color}" style="width:50px;height:38px;border:0;background:none"><input type="range" id="sz" min="1" max="24" value="${size}"><b id="szv">${size}</b></div>
@@ -149,7 +153,7 @@ $('#snap').onclick=()=>{compose();board.toBlob(async b=>{const name='board-'+sta
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();toast('PNG saved')},'image/png')};
 
 /* ---------- recording ---------- */
-let rec=null,recStream=null,micStream=null,chunks=[],writeQ=Promise.resolve(),t0=0,accum=0,tick=null,mime='',actx=null,mraf=0,recName='';
+let lastDur=0,rec=null,recStream=null,micStream=null,chunks=[],writeQ=Promise.resolve(),t0=0,accum=0,tick=null,mime='',actx=null,mraf=0,recName='';
 const recActive=()=>!!rec&&rec.state!=='inactive';
 function pickMime(){return ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm'].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||''}
 $('#mic').onclick=()=>{if(recActive()){toast('Change the mic before you start recording');return}micOn=!micOn;$('#mic').classList.toggle('on',micOn);$('#mic').textContent=micOn?'🎤 Mic':'🔇 No mic'};
@@ -167,7 +171,7 @@ async function startRec(){
   recStream=board.captureStream(30);micStream=ms;if(ms){ms.getAudioTracks().forEach(t=>recStream.addTrack(t));meter(ms)}
   const ext=mime.includes('mp4')?'mp4':'webm';recName='lecture-'+stamp()+'.'+ext;chunks=[];writeQ=Promise.resolve();
   if(IN_APK&&!Android.startVideo(recName,mime.split(';')[0]||'video/'+ext)){toast('Could not create the video file');cleanup();return}
-  try{rec=new MediaRecorder(recStream,Object.assign({videoBitsPerSecond:4e6,audioBitsPerSecond:128e3},mime?{mimeType:mime}:{}))}catch(e){toast('Could not start recording');cleanup();return}
+  try{rec=new MediaRecorder(recStream,Object.assign({videoBitsPerSecond:4e6,audioBitsPerSecond:128e3,videoKeyFrameIntervalDuration:1000},mime?{mimeType:mime}:{}))}catch(e){toast('Could not start recording');cleanup();return}
   rec.ondataavailable=e=>{if(!e.data||!e.data.size)return;if(IN_APK){writeQ=writeQ.then(async()=>{Android.chunk(b64(new Uint8Array(await e.data.arrayBuffer())))})}else chunks.push(e.data)};
   rec.onstop=finishRec;rec.start(1000);t0=performance.now();accum=0;
   $('#rec').textContent='■ STOP';$('#rec').classList.add('live');$('#pause').style.display='';$('#pause').textContent='⏸ Pause';$('#timer').classList.add('live');
@@ -176,11 +180,52 @@ function cleanup(){clearInterval(tick);cancelAnimationFrame(mraf);if(actx){actx.
   [recStream,micStream].forEach(s=>s&&s.getTracks().forEach(t=>t.stop()));recStream=micStream=null;
   $('#rec').textContent='● REC';$('#rec').classList.remove('live');$('#pause').style.display='none';$('#timer').classList.remove('live')}
 async function finishRec(){const dur=elapsed();cleanup();$('#timer').textContent='00:00';
-  if(IN_APK){await writeQ;const where=Android.finishVideo();sheet(`<h3>Lecture saved ✓</h3><p>${fmt(dur)} recorded.<br>Saved as <b>${recName}</b> in <b>${where||'Movies/BoardRecorder'}</b>.</p><div class="row"><button class="pri" style="padding:0 18px" onclick="closeSheet()">OK</button></div>`);return}
+  if(IN_APK){await writeQ;lastDur=dur;sheet(`<h3>Saving your lecture…</h3><p>${fmt(dur)} recorded. Preparing the video file, please wait.</p>`);Android.finishVideo();return}
   const blob=new Blob(chunks,{type:mime.split(';')[0]||'video/webm'}),url=URL.createObjectURL(blob);
   sheet(`<h3>Recording ready</h3><video src="${url}" controls playsinline></video><div class="row"><a id="dl" download="${recName}" href="${url}"><button class="pri" style="padding:0 18px">Download ${(blob.size/1048576).toFixed(1)} MB</button></a><button style="padding:0 18px" onclick="closeSheet()">Close</button></div>`)}
 $('#rec').onclick=()=>{if(recActive()){rec.stop();}else startRec()};
 $('#pause').onclick=()=>{if(!recActive())return;if(rec.state==='recording'){accum=elapsed();rec.pause();$('#pause').textContent='▶ Resume';$('#timer').classList.remove('live')}else{rec.resume();t0=performance.now();$('#pause').textContent='⏸ Pause';$('#timer').classList.add('live')}};
+
+/* ---------- video library + editor (Android app) ---------- */
+if(IN_APK&&Android.listVideos)$('#vid').style.display='';
+const mmss=(s)=>{s=Math.max(0,s);const m=Math.floor(s/60),x=s-m*60;return String(m).padStart(2,'0')+':'+x.toFixed(1).padStart(4,'0')};
+const sizeTxt=b=>b>1048576?(b/1048576).toFixed(1)+' MB':Math.round(b/1024)+' KB';
+window.__videoSaved=(ok,where,name)=>{if(ok)sheet(`<h3>Lecture saved ✓</h3><p>${fmt(lastDur)} recorded.<br>Saved as <b>${esc(name)}</b><br>in <b>${esc(where)}</b>.</p><div class="row"><button class="pri" style="padding:0 18px" onclick="openLib()">Open my videos</button><button style="padding:0 18px" onclick="closeSheet()">OK</button></div>`);else sheet(`<h3>Could not save</h3><p>${esc(where)}</p><div class="row"><button style="padding:0 18px" onclick="closeSheet()">OK</button></div>`)};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function openLib(){let list=[];try{list=JSON.parse(Android.listVideos())}catch(e){}
+  sheet(`<h3>My videos</h3>${list.length?list.map(v=>`<div class="vrow"><div class="nm"><b>${esc(v.name)}</b><div class="pill">${mmss(v.dur/1000)} · ${sizeTxt(v.size)}</div></div><button class="pri" data-e="${v.id}">✂ Edit</button><button data-s="${v.id}">Share</button><button data-d="${v.id}">🗑</button></div>`).join(''):'<p class="pill">No videos yet. Record a lecture and it will appear here.</p>'}<div class="row"><button style="padding:0 18px" onclick="closeSheet()">Close</button></div>`,m=>{
+    m.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>openEditor(list.find(v=>v.id===b.dataset.e)));
+    m.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>Android.shareVideo(b.dataset.s));
+    m.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{const v=list.find(x=>x.id===b.dataset.d);sheet(`<h3>Delete this video?</h3><p>${esc(v.name)}</p><div class="row"><button style="padding:0 18px" onclick="openLib()">Cancel</button><button class="pri" style="padding:0 18px;background:#d93a3a;border-color:#d93a3a" id="dy">Delete</button></div>`,()=>$('#dy').onclick=()=>{Android.deleteVideo(v.id);openLib()})})},true)}
+let ed=null;
+function openEditor(v){
+  const dur=v.dur/1000;ed={v,dur,s:0,e:dur};
+  sheet(`<h3>${esc(v.name)}</h3><div class="ed"><div><video id="ev" src="/video/${v.id}" controls playsinline preload="metadata"></video>
+   <input type="range" id="sl" min="0" max="${Math.round(dur*10)}" value="0" style="width:100%;margin-top:6px">
+   <div class="nud"><button data-n="-5">−5s</button><button data-n="-1">−1s</button><button data-n="-0.1">−0.1</button><button data-n="0.1">+0.1</button><button data-n="1">+1s</button><button data-n="5">+5s</button></div></div>
+   <div><div class="pill" id="pos">Playhead 00:00.0 / ${mmss(dur)}</div>
+   <div class="row"><button id="bs">⟦ Set start</button><button id="be">Set end ⟧</button><button id="bp">▶ Play selection</button></div>
+   <div class="pill" id="sel" style="margin-top:6px"></div>
+   <div class="row"><button class="pri" id="bt">✂ Trim — keep selection</button><button id="bc">Cut out selection</button><button id="bsp">Split at playhead</button></div>
+   <div class="pill" id="msg" style="margin-top:8px;white-space:normal">Cuts snap to the nearest keyframe before your point, so a clip can start up to a second early. Originals are never changed.</div>
+   <div class="row"><button style="padding:0 18px" id="bb">‹ Back to list</button></div></div></div>`,()=>{
+    const vd=$('#ev'),sl=$('#sl');
+    const cur=()=>vd.currentTime||0;
+    const upd=()=>{$('#pos').textContent='Playhead '+mmss(cur())+' / '+mmss(dur);$('#sel').textContent='Start '+mmss(ed.s)+'   End '+mmss(ed.e)+'   Length '+mmss(ed.e-ed.s)};
+    const seek=t=>{vd.currentTime=Math.max(0,Math.min(dur,t));sl.value=Math.round(cur()*10);upd()};
+    vd.ontimeupdate=()=>{sl.value=Math.round(cur()*10);upd();if(ed.playSel&&cur()>=ed.e){vd.pause();ed.playSel=false}};
+    sl.oninput=()=>{vd.currentTime=sl.value/10;upd()};
+    document.querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>seek(cur()+parseFloat(b.dataset.n)));
+    $('#bs').onclick=()=>{ed.s=Math.min(cur(),ed.e-0.2);upd()};$('#be').onclick=()=>{ed.e=Math.max(cur(),ed.s+0.2);upd()};
+    $('#bp').onclick=()=>{seek(ed.s);ed.playSel=true;vd.play()};
+    const run=(jobs,label)=>{$('#msg').textContent=label+' … please wait';document.querySelectorAll('#modal button').forEach(b=>b.disabled=true);Android.exportJobs(v.id,JSON.stringify(jobs))};
+    $('#bt').onclick=()=>run([{label:'trim',segs:[[ed.s,ed.e>=dur-0.05?-1:ed.e]]}],'Trimming');
+    $('#bc').onclick=()=>{const segs=[];if(ed.s>0.1)segs.push([0,ed.s]);if(ed.e<dur-0.1)segs.push([ed.e,-1]);if(!segs.length){$('#msg').textContent='That would remove the whole video.';return}run([{label:'cut',segs}],'Cutting')};
+    $('#bsp').onclick=()=>{const t=cur();if(t<0.3||t>dur-0.3){$('#msg').textContent='Move the playhead to where you want to split.';return}run([{label:'part1',segs:[[0,t]]},{label:'part2',segs:[[t,-1]]}],'Splitting')};
+    $('#bb').onclick=openLib;upd()},true)}
+window.__exportDone=(ok,info)=>{let names=[];if(ok){try{names=JSON.parse(info)}catch(e){}}
+  sheet(ok?`<h3>Done ✓</h3><p>Saved ${names.length>1?'two new videos':'a new video'}:<br>${names.map(n=>'<b>'+esc(n)+'</b>').join('<br>')}</p><div class="row"><button class="pri" style="padding:0 18px" onclick="openLib()">Back to my videos</button></div>`:`<h3>Could not edit</h3><p>${esc(info)}</p><div class="row"><button style="padding:0 18px" onclick="openLib()">Back</button></div>`)};
+$('#vid').onclick=openLib;
 window.__back=()=>{if(closeSheet())return true;return false};
 replay();pgLabel();compose();
 </script></body></html>
