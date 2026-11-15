@@ -15,7 +15,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.9' }
       - name: Build debug APK
-        run: gradle :app:assembleDebug :akhirah:assembleDebug :drawrec:assembleDebug :cousin:assembleDebug --no-daemon
+        run: gradle :app:assembleDebug :akhirah:assembleDebug :drawrec:assembleDebug :cousin:assembleDebug :arabic:assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: Planora-debug-apk
@@ -26,6 +26,7 @@ jobs:
           cp akhirah/build/outputs/apk/debug/akhirah-debug.apk LifeApp.apk
           cp drawrec/build/outputs/apk/debug/drawrec-debug.apk BoardRecorder.apk
           cp cousin/build/outputs/apk/debug/cousin-debug.apk CousinHeaven.apk
+          cp arabic/build/outputs/apk/debug/arabic-debug.apk LittleArabic.apk
       - uses: actions/upload-artifact@v4
         with:
           name: LifeApp-debug-apk
@@ -45,4 +46,5 @@ jobs:
             LifeApp.apk
             BoardRecorder.apk
             CousinHeaven.apk
+            LittleArabic.apk
         env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }

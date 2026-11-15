@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Little Arabic</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>
+:root{--bg:#fff7e8;--ink:#35294a;--mut:#8a7e99;--line:#f0e2c8;--grn:#2bb8ae;--gold:#f7b731;--pink:#ff7aa2;--pur:#8b6cf6}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#app{max-width:560px;margin:0 auto;min-height:100vh;padding:0 14px calc(env(safe-area-inset-bottom) + 20px);padding-top:env(safe-area-inset-top)}
+header{display:flex;align-items:center;gap:8px;padding:12px 0;position:sticky;top:0;background:var(--bg);z-index:4}
+header h1{font-size:20px;margin:0;flex:1}
+button{font:inherit;color:var(--ink);background:#fff;border:2px solid var(--line);border-radius:16px;padding:10px 16px;font-weight:700;cursor:pointer}
+button.pri{background:var(--grn);border-color:var(--grn);color:#fff}button.gold{background:var(--gold);border-color:var(--gold)}button.ghost{background:none;border:0;padding:6px 10px}
+button.sm{padding:6px 12px;font-size:14px;border-radius:12px}button:disabled{opacity:.45}
+.card{background:#fff;border-radius:20px;padding:14px;margin-bottom:12px;box-shadow:0 3px 0 var(--line)}
+.row{display:flex;align-items:center;gap:10px}.sp{justify-content:space-between}.wrap{flex-wrap:wrap}.sub{color:var(--mut);font-size:13px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{border-radius:22px;padding:16px 10px;text-align:center;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 5px 0 #0002;position:relative}
+.tile b{display:block;font-size:42px;margin-bottom:2px}.tile small{display:block;font-weight:600;opacity:.9;font-size:12px}
+.ar{font-family:"Noto Naskh Arabic","Droid Arabic Naskh","Amiri","Traditional Arabic",serif;direction:rtl;text-align:center;line-height:1.7}
+.big{font-size:54px}.mid{font-size:30px}
+.pill{background:#fff;border:2px solid var(--line);border-radius:20px;padding:2px 12px;font-weight:800;font-size:14px}
+.bar{height:10px;background:#f1e5cf;border-radius:8px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--grn),var(--gold))}
+.fc{min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;text-align:center;padding:20px}
+.fc .sym{font-size:56px;margin-bottom:6px}
+.opt{display:block;width:100%;margin:8px 0;padding:14px;font-size:18px;text-align:center}
+.opt.ok{background:#c8f7d4;border-color:#34c759}.opt.bad{background:#ffd6d6;border-color:#ef5350}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.mt{min-height:78px;font-size:18px;padding:6px;display:flex;align-items:center;justify-content:center;text-align:center;border-radius:16px}
+.mt.sel{border-color:var(--pur);background:#f0eaff}.mt.done{background:#c8f7d4;border-color:#34c759;opacity:.7}
+.verse{padding:12px 6px;border-bottom:2px dashed var(--line);cursor:pointer}.verse:last-child{border:0}
+.vn{display:inline-block;background:var(--gold);color:#fff;border-radius:50%;width:26px;height:26px;text-align:center;font-weight:800;font-size:13px;line-height:26px;margin-inline-end:6px}
+.hid{display:inline-block;background:#e9defc;border-radius:8px;min-width:34px;height:30px;margin:2px 3px;vertical-align:middle}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#35294a;color:#fff;padding:10px 16px;border-radius:20px;display:none;z-index:20;max-width:90vw;text-align:center}
+.star{color:var(--gold)}.sent{padding:12px;margin:6px 0;border-radius:16px;background:#fff;box-shadow:0 2px 0 var(--line);cursor:pointer}
+</style></head><body><div id="app"></div><div id="toast"></div>
+<script>
+// Vocabulary: [arabic, transliteration, english, symbol]
+const CATS=[
+ {id:'num',t:'Numbers',e:'🔢',c:'#4c9be8',w:[['وَاحِد','wāḥid','one','1'],['اثْنَان','ithnān','two','2'],['ثَلَاثَة','thalātha','three','3'],['أَرْبَعَة','arbaʿa','four','4'],['خَمْسَة','khamsa','five','5'],['سِتَّة','sitta','six','6'],['سَبْعَة','sabʿa','seven','7'],['ثَمَانِيَة','thamāniya','eight','8'],['تِسْعَة','tisʿa','nine','9'],['عَشَرَة','ʿashara','ten','10']]},
+ {id:'col',t:'Colors',e:'🎨',c:'#e0679c',w:[['أَحْمَر','aḥmar','red','🔴'],['أَزْرَق','azraq','blue','🔵'],['أَخْضَر','akhḍar','green','🟢'],['أَصْفَر','aṣfar','yellow','🟡'],['أَبْيَض','abyaḍ','white','⚪'],['أَسْوَد','aswad','black','⚫'],['بُرْتُقَالِيّ','burtuqālī','orange','🟠'],['بَنَفْسَجِيّ','banafsajī','purple','🟣'],['بُنِّيّ','bunnī','brown','🟤']]},
+ {id:'food',t:'Food & Fruit',e:'🍎',c:'#ef7d57',w:[['تُفَّاحَة','tuffāḥa','apple','🍎'],['مَوْزَة','mawza','banana','🍌'],['بُرْتُقَالَة','burtuqāla','orange (fruit)','🍊'],['عِنَب','ʿinab','grapes','🍇'],['تَمْر','tamr','dates','🌴'],['لَيْمُون','laymūn','lemon','🍋'],['بِطِّيخ','biṭṭīkh','watermelon','🍉'],['فَرَاوِلَة','farāwila','strawberry','🍓'],['خُبْز','khubz','bread','🍞'],['حَلِيب','ḥalīb','milk','🥛'],['مَاء','māʾ','water','💧'],['عَسَل','ʿasal','honey','🍯'],['أَرُزّ','aruzz','rice','🍚']]},
+ {id:'nat',t:'Nature',e:'🌳',c:'#2bb8ae',w:[['شَمْس','shams','sun','☀️'],['قَمَر','qamar','moon','🌙'],['نَجْمَة','najma','star','⭐'],['سَمَاء','samāʾ','sky','🌌'],['أَرْض','arḍ','earth','🌍'],['بَحْر','baḥr','sea','🌊'],['جَبَل','jabal','mountain','⛰️'],['شَجَرَة','shajara','tree','🌳'],['زَهْرَة','zahra','flower','🌸'],['مَطَر','maṭar','rain','🌧️'],['نَار','nār','fire','🔥'],['رِيح','rīḥ','wind','💨']]},
+ {id:'home',t:'Home & Things',e:'🏠',c:'#8b6cf6',w:[['بَيْت','bayt','house','🏠'],['بَاب','bāb','door','🚪'],['كِتَاب','kitāb','book','📖'],['قَلَم','qalam','pen','✏️'],['مِفْتَاح','miftāḥ','key','🔑'],['سَاعَة','sāʿa','clock','⏰'],['كُرْسِيّ','kursī','chair','🪑'],['سَرِير','sarīr','bed','🛏️'],['مِصْبَاح','miṣbāḥ','lamp','💡'],['سَيَّارَة','sayyāra','car','🚗'],['مَسْجِد','masjid','mosque','🕌'],['كُرَة','kura','ball','⚽'],['حَقِيبَة','ḥaqība','bag','🎒']]},
+ {id:'fam',t:'Family',e:'💛',c:'#f7b731',w:[['أَب','ab','father','💛'],['أُمّ','umm','mother','💛'],['أَخ','akh','brother','💛'],['أُخْت','ukht','sister','💛'],['جَدّ','jadd','grandfather','💛'],['جَدَّة','jadda','grandmother','💛'],['عَمّ','ʿamm','uncle (father’s brother)','💛'],['خَال','khāl','uncle (mother’s brother)','💛'],['عَمَّة','ʿamma','aunt (father’s sister)','💛'],['خَالَة','khāla','aunt (mother’s sister)','💛']]},
+ {id:'day',t:'Days of the Week',e:'📅',c:'#6b4fa0',w:[['الْأَحَد','al-aḥad','Sunday','1'],['الِاثْنَيْن','al-ithnayn','Monday','2'],['الثُّلَاثَاء','ath-thulāthāʾ','Tuesday','3'],['الْأَرْبِعَاء','al-arbiʿāʾ','Wednesday','4'],['الْخَمِيس','al-khamīs','Thursday','5'],['الْجُمُعَة','al-jumuʿa','Friday (day of Jumuʿa)','🕌'],['السَّبْت','as-sabt','Saturday','7']]},
+ {id:'say',t:'Good Words',e:'🤲',c:'#3a8f6b',w:[['السَّلَامُ عَلَيْكُمْ','as-salāmu ʿalaykum','peace be upon you','🤲'],['وَعَلَيْكُمُ السَّلَام','wa ʿalaykumu s-salām','and upon you peace','🤲'],['شُكْرًا','shukran','thank you','💛'],['عَفْوًا','ʿafwan','you’re welcome','💛'],['مِنْ فَضْلِك','min faḍlik','please','💛'],['بِسْمِ اللَّه','bismillāh','in the name of Allah','🤲'],['الْحَمْدُ لِلَّه','alḥamdu lillāh','all praise is for Allah','🤲'],['إِنْ شَاءَ اللَّه','in shāʾ Allāh','if Allah wills','🤲'],['مَا شَاءَ اللَّه','mā shāʾ Allāh','what Allah has willed (wonderful!)','🤲'],['جَزَاكَ اللَّهُ خَيْرًا','jazāka llāhu khayran','may Allah reward you with good','🤲'],['صَبَاحُ الْخَيْر','ṣabāḥu l-khayr','good morning','🌅'],['مَسَاءُ الْخَيْر','masāʾu l-khayr','good evening','🌆']]}
+];
+// Quran words: [arabic, translit, english, found in]
+const QW=[['اللَّه','Allāh','Allah (God)','every surah'],['رَبّ','Rabb','Lord, who creates and looks after us','Fatiha, Nas'],['الرَّحْمَٰن','Ar-Raḥmān','The Most Merciful','Fatiha'],['الرَّحِيم','Ar-Raḥīm','The Most Kind','Fatiha'],['الْحَمْد','Al-Ḥamd','praise','Fatiha'],['الْعَالَمِين','Al-ʿĀlamīn','all the worlds','Fatiha'],['يَوْم','Yawm','day','Fatiha'],['دِين','Dīn','religion; judgement','Fatiha, Kafirun'],['نَعْبُد','Naʿbud','we worship','Fatiha'],['صِرَاط','Ṣirāṭ','path','Fatiha'],['مُسْتَقِيم','Mustaqīm','straight','Fatiha'],
+['قُلْ','Qul','say!','Ikhlas, Falaq, Nas, Kafirun'],['أَحَد','Aḥad','One','Ikhlas'],['صَمَد','Ṣamad','the Self-Sufficient, needed by all','Ikhlas'],['كُفُو','Kufuwan','equal','Ikhlas'],
+['أَعُوذ','Aʿūdhu','I seek refuge','Falaq, Nas'],['فَلَق','Falaq','daybreak','Falaq'],['شَرّ','Sharr','evil','Falaq, Nas'],['خَلَقَ','Khalaqa','He created','Falaq'],
+['نَاس','Nās','people, mankind','Nas, Asr'],['مَلِك','Malik','King','Nas'],['إِلَٰه','Ilāh','God','Nas'],
+['كَوْثَر','Kawthar','abundant good','Kawthar'],['صَلِّ','Ṣalli','pray','Kawthar'],
+['عَصْر','ʿAṣr','time (afternoon)','Asr'],['إِنسَان','Insān','human being','Asr'],['خُسْر','Khusr','loss','Asr'],['آمَنُوا','Āmanū','they believed','Asr'],['حَقّ','Ḥaqq','the truth','Asr'],['صَبْر','Ṣabr','patience','Asr'],
+['نَصْر','Naṣr','help, victory','Nasr'],['فَتْح','Fatḥ','the opening, victory','Nasr'],['فَسَبِّحْ','Fa-sabbiḥ','so glorify','Nasr'],['اسْتَغْفِرْ','Istaghfir','ask forgiveness','Nasr'],['تَوَّاب','Tawwāb','Ever-Accepting of repentance','Nasr'],
+['بَيْت','Bayt','house (the Kaaba)','Quraysh'],['جُوع','Jūʿ','hunger','Quraysh'],['خَوْف','Khawf','fear','Quraysh']];
+const SURAHS=[
+ {id:'fatiha',ar:'الْفَاتِحَة',en:'Al-Fatiha',note:'The Opening',v:[['بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ','In the name of Allah, the Most Merciful, the Most Kind.'],['الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ','All praise is for Allah, Lord of all the worlds.'],['الرَّحْمَٰنِ الرَّحِيمِ','The Most Merciful, the Most Kind.'],['مَالِكِ يَوْمِ الدِّينِ','Master of the Day of Judgement.'],['إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ','You alone we worship, and You alone we ask for help.'],['اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ','Guide us to the straight path.'],['صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ','The path of those You have blessed, not of those who earned anger, nor of those who are lost.']]},
+ {id:'ikhlas',ar:'الْإِخْلَاص',en:'Al-Ikhlas',note:'Sincerity',v:[['قُلْ هُوَ اللَّهُ أَحَدٌ','Say: He is Allah, the One.'],['اللَّهُ الصَّمَدُ','Allah, the Self-Sufficient, needed by all.'],['لَمْ يَلِدْ وَلَمْ يُولَدْ','He has no child, and He was not born.'],['وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ','And there is none equal to Him.']]},
+ {id:'falaq',ar:'الْفَلَق',en:'Al-Falaq',note:'The Daybreak',v:[['قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ','Say: I seek refuge in the Lord of daybreak,'],['مِن شَرِّ مَا خَلَقَ','from the evil of what He created,'],['وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ','and from the evil of the darkness when it settles,'],['وَمِن شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ','and from the evil of those who blow on knots (magic),'],['وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ','and from the evil of an envier when he envies.']]},
+ {id:'nas',ar:'النَّاس',en:'An-Nas',note:'Mankind',v:[['قُلْ أَعُوذُ بِرَبِّ النَّاسِ','Say: I seek refuge in the Lord of mankind,'],['مَلِكِ النَّاسِ','the King of mankind,'],['إِلَٰهِ النَّاسِ','the God of mankind,'],['مِن شَرِّ الْوَسْوَاسِ الْخَنَّاسِ','from the evil of the whisperer who withdraws,'],['الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ','who whispers in the hearts of mankind,'],['مِنَ الْجِنَّةِ وَالنَّاسِ','from among jinn and mankind.']]},
+ {id:'kawthar',ar:'الْكَوْثَر',en:'Al-Kawthar',note:'The Abundance',v:[['إِنَّا أَعْطَيْنَاكَ الْكَوْثَرَ','Indeed, We have given you Al-Kawthar (abundant good).'],['فَصَلِّ لِرَبِّكَ وَانْحَرْ','So pray to your Lord and sacrifice.'],['إِنَّ شَانِئَكَ هُوَ الْأَبْتَرُ','Indeed, the one who hates you is the one cut off.']]},
+ {id:'asr',ar:'الْعَصْر',en:'Al-Asr',note:'Time',v:[['وَالْعَصْرِ','By time,'],['إِنَّ الْإِنسَانَ لَفِي خُسْرٍ','indeed, mankind is in loss,'],['إِلَّا الَّذِينَ آمَنُوا وَعَمِلُوا الصَّالِحَاتِ وَتَوَاصَوْا بِالْحَقِّ وَتَوَاصَوْا بِالصَّبْرِ','except those who believe, do good deeds, and advise each other to truth and to patience.']]},
+ {id:'nasr',ar:'النَّصْر',en:'An-Nasr',note:'The Help',v:[['إِذَا جَاءَ نَصْرُ اللَّهِ وَالْفَتْحُ','When the help of Allah and the victory come,'],['وَرَأَيْتَ النَّاسَ يَدْخُلُونَ فِي دِينِ اللَّهِ أَفْوَاجًا','and you see people entering the religion of Allah in crowds,'],['فَسَبِّحْ بِحَمْدِ رَبِّكَ وَاسْتَغْفِرْهُ إِنَّهُ كَانَ تَوَّابًا','then glorify your Lord with praise and ask His forgiveness. Indeed, He is ever accepting of repentance.']]},
+ {id:'kafirun',ar:'الْكَافِرُون',en:'Al-Kafirun',note:'The Disbelievers',v:[['قُلْ يَا أَيُّهَا الْكَافِرُونَ','Say: O disbelievers!'],['لَا أَعْبُدُ مَا تَعْبُدُونَ','I do not worship what you worship.'],['وَلَا أَنتُمْ عَابِدُونَ مَا أَعْبُدُ','Nor do you worship what I worship.'],['وَلَا أَنَا عَابِدٌ مَّا عَبَدتُّمْ','Nor will I worship what you worship.'],['وَلَا أَنتُمْ عَابِدُونَ مَا أَعْبُدُ','Nor will you worship what I worship.'],['لَكُمْ دِينُكُمْ وَلِيَ دِينِ','You have your religion, and I have mine.']]},
+ {id:'quraysh',ar:'قُرَيْش',en:'Quraysh',note:'The Quraysh tribe',v:[['لِإِيلَافِ قُرَيْشٍ','For the protection of Quraysh,'],['إِيلَافِهِمْ رِحْلَةَ الشِّتَاءِ وَالصَّيْفِ','their protection during the winter and summer journey.'],['فَلْيَعْبُدُوا رَبَّ هَٰذَا الْبَيْتِ','So let them worship the Lord of this House,'],['الَّذِي أَطْعَمَهُم مِّن جُوعٍ وَآمَنَهُم مِّنْ خَوْفٍ','who fed them against hunger and made them safe from fear.']]}
+];
+const STORIES=[
+ {id:'s1',ar:'الْوَلَدُ الصَّادِقُ',en:'The Honest Boy',s:[['وَجَدَ أَحْمَدُ مَحْفَظَةً فِي الطَّرِيقِ.','Ahmad found a wallet on the road.'],['فِي الْمَحْفَظَةِ مَالٌ كَثِيرٌ.','In the wallet there was a lot of money.'],['قَالَ أَحْمَدُ: هَذَا لَيْسَ لِي.','Ahmad said: This is not mine.'],['ذَهَبَ أَحْمَدُ إِلَى أَبِيهِ.','Ahmad went to his father.'],['فَرِحَ صَاحِبُ الْمَحْفَظَةِ وَشَكَرَ أَحْمَدَ.','The owner of the wallet was happy and thanked Ahmad.'],['الصِّدْقُ جَمِيلٌ.','Honesty is beautiful.']],q:['What did Ahmad find?',['A wallet','A book','A key'],0]},
+ {id:'s2',ar:'الْبَذْرَةُ الصَّغِيرَةُ',en:'The Little Seed',s:[['زَرَعَتْ مَرْيَمُ بَذْرَةً فِي الْحَدِيقَةِ.','Maryam planted a seed in the garden.'],['سَقَتْهَا بِالْمَاءِ كُلَّ يَوْمٍ.','She watered it with water every day.'],['صَبَرَتْ مَرْيَمُ أَيَّامًا كَثِيرَةً.','Maryam was patient for many days.'],['ثُمَّ نَبَتَتْ زَهْرَةٌ جَمِيلَةٌ.','Then a beautiful flower grew.'],['قَالَتْ مَرْيَمُ: الْحَمْدُ لِلَّهِ.','Maryam said: Alhamdulillah.']],q:['What did Maryam do every day?',['She watered the seed','She sold the seed','She lost the seed'],0]},
+ {id:'s3',ar:'تُفَّاحَتَانِ',en:'Two Apples',s:[['عِنْدَ يُوسُفَ تُفَّاحَتَانِ.','Yusuf has two apples.'],['جَاءَ أَخُوهُ الصَّغِيرُ.','His little brother came.'],['قَالَ يُوسُفُ: خُذْ تُفَّاحَةً يَا أَخِي.','Yusuf said: Take an apple, my brother.'],['فَرِحَ الْأَخُ وَقَالَ: جَزَاكَ اللَّهُ خَيْرًا.','The brother was happy and said: May Allah reward you with good.'],['الْعَطَاءُ جَمِيلٌ.','Giving is beautiful.']],q:['How many apples did Yusuf have?',['One','Two','Three'],1]},
+ {id:'s4',ar:'صَلَاةُ الْفَجْرِ',en:'The Fajr Prayer',s:[['اسْتَيْقَظَ عُمَرُ قَبْلَ الشَّمْسِ.','Umar woke up before the sun.'],['تَوَضَّأَ عُمَرُ بِالْمَاءِ.','Umar made wudu with water.'],['ذَهَبَ مَعَ أَبِيهِ إِلَى الْمَسْجِدِ.','He went with his father to the mosque.'],['صَلَّى الْفَجْرَ رَكْعَتَيْنِ.','He prayed Fajr, two rakats.'],['الْجَوُّ هَادِئٌ وَالْفَجْرُ جَمِيلٌ.','The air was calm and the dawn was beautiful.']],q:['Where did Umar go?',['To the market','To the mosque','To the sea'],1]},
+ {id:'s5',ar:'فِي السُّوقِ',en:'At the Market',s:[['ذَهَبَتْ فَاطِمَةُ مَعَ أُمِّهَا إِلَى السُّوقِ.','Fatima went with her mother to the market.'],['اشْتَرَتْ أُمُّهَا خُبْزًا وَمَاءً.','Her mother bought bread and water.'],['قَالَتْ فَاطِمَةُ: أُرِيدُ تُفَّاحًا.','Fatima said: I want apples.'],['قَالَتِ الْأُمُّ: حَاضِرٌ.','The mother said: Of course.'],['رَجَعَتَا إِلَى الْبَيْتِ فَرِحَتَيْنِ.','They went back home, happy.']],q:['What did Fatima ask for?',['Apples','Milk','A ball'],0]}
+];
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const todayS=()=>new Date().toISOString().slice(0,10);
+let P={stars:0,known:{},streak:0,last:'',surah:{},story:{},show:true};
+try{Object.assign(P,JSON.parse(localStorage.getItem('littlearabic')||'{}'))}catch(e){}
+const saveP=()=>{try{localStorage.setItem('littlearabic',JSON.stringify(P))}catch(e){}};
+(function streak(){const t=todayS();if(P.last!==t){const y=new Date(Date.now()-864e5).toISOString().slice(0,10);P.streak=P.last===y?P.streak+1:1;P.last=t;saveP()}})();
+const toast=(m,t=2200)=>{const e=$('#toast');e.textContent=m;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',t)};
+const addStars=n=>{P.stars+=n;saveP()};
+// words
+const ALL=[];CATS.forEach(c=>c.w.forEach((w,i)=>ALL.push({id:c.id+':'+i,ar:w[0],tr:w[1],en:w[2],sym:w[3],cat:c.id})));
+QW.forEach((w,i)=>ALL.push({id:'q:'+i,ar:w[0],tr:w[1],en:w[2],sym:'📖',cat:'quran',from:w[3]}));
+const POOL=id=>id==='all'?ALL:ALL.filter(w=>w.cat===id);
+// speech
+function speak(text){
+  try{if(window.Android&&Android.speak){const r=Android.speak(text);if(r==='missing')toast('Arabic voice not installed. Phone Settings → Text-to-speech → add Arabic.',4500);return}}catch(e){}
+  try{const u=new SpeechSynthesisUtterance(text);u.lang='ar-SA';u.rate=.8;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){toast('Sound is not available here.')}
+}
+// navigation
+let stack=[];let cur={v:'home'};
+function nav(v,o={}){stack.push(cur);cur=Object.assign({v},o);render();scrollTo(0,0)}
+function back(){if(!stack.length)return false;cur=stack.pop();render();return true}
+window.appBack=()=>back();
+const TITLE={home:'Little Arabic',cats:'Words',deck:'Flashcards',quiz:'Quiz',match:'Match',surahs:'Short Surahs',surah:'Surah',stories:'Stories',story:'Story'};
+function render(){
+  $('#app').innerHTML=`<header>${cur.v!=='home'?'<button class="ghost" id="bk" style="font-size:24px">‹</button>':''}<h1>${cur.title||TITLE[cur.v]}</h1><span class="pill">⭐ ${P.stars}</span></header><div id="main"></div>`;
+  if($('#bk'))$('#bk').onclick=back;
+  ({home:vHome,cats:vCats,deck:vDeck,quiz:vQuiz,match:vMatch,surahs:vSurahs,surah:vSurah,stories:vStories,story:vStory,menu:vMenu}[cur.v])();
+}
+function vHome(){
+  const kn=Object.keys(P.known).length,tot=ALL.length;
+  $('#main').innerHTML=`<div class="card"><div class="row sp"><div><b style="font-size:18px">Assalamu alaikum! 🌙</b><div class="sub">Let's learn Arabic today</div></div><div style="text-align:right"><div class="pill">🔥 ${P.streak} day${P.streak==1?'':'s'}</div></div></div><div class="bar" style="margin-top:10px"><i style="width:${kn*100/tot}%"></i></div><div class="sub" style="margin-top:4px">${kn} of ${tot} words learned</div></div>
+  <div class="tiles">${[['cats','📚','Words','Colors, food, family…','#4c9be8'],['deck','📖','Quran Words','Words from the surahs','#2bb8ae',{pool:'quran',title:'Quran Words'}],['surahs','🕌','Short Surahs','Read & memorize','#8b6cf6'],['stories','📜','Stories','Read in Arabic','#e0679c'],['quiz','🎯','Quiz','Test yourself','#f7b731',{pool:'all',title:'Mixed Quiz'}],['match','🧩','Match Game','Find the pairs','#ef7d57',{pool:'all'}]].map((t,i)=>`<div class="tile" style="background:${t[4]}" data-i="${i}"><b>${t[1]}</b>${t[2]}<small>${t[3]}</small></div>`).join('')}</div>
+  <div class="sub" style="text-align:center;margin-top:14px">Please ask a parent or teacher to check your reading. 💛</div>`;
+  const T=[['cats'],['deck',{pool:'quran',title:'Quran Words'}],['surahs'],['stories'],['quiz',{pool:'all',title:'Mixed Quiz'}],['match',{pool:'all'}]];
+  document.querySelectorAll('[data-i]').forEach(e=>e.onclick=()=>nav(T[+e.dataset.i][0],T[+e.dataset.i][1]));
+}
+function vCats(){
+  $('#main').innerHTML=`<div class="tiles">${CATS.map(c=>{const k=c.w.filter((w,i)=>P.known[c.id+':'+i]).length;return `<div class="tile" style="background:${c.c}" data-c="${c.id}"><b>${c.e}</b>${c.t}<small>${k}/${c.w.length} learned</small></div>`}).join('')}</div>`;
+  document.querySelectorAll('[data-c]').forEach(e=>e.onclick=()=>nav('menu',{id:e.dataset.c,title:CATS.find(x=>x.id===e.dataset.c).t}));
+}
+function vMenu(){const id=cur.id,c=CATS.find(x=>x.id===id);
+  $('#main').innerHTML=`<div class="card" style="text-align:center"><div style="font-size:50px">${c.e}</div><h2 style="margin:4px 0">${c.t}</h2><div class="sub">${c.w.length} words</div></div>
+  <button class="pri" style="width:100%;margin-bottom:10px;font-size:18px" id="m1">📖 Flashcards</button><button class="gold" style="width:100%;margin-bottom:10px;font-size:18px" id="m2">🎯 Quiz</button><button style="width:100%;font-size:18px" id="m3">🧩 Match game</button>`;
+  $('#m1').onclick=()=>nav('deck',{pool:id,title:c.t});$('#m2').onclick=()=>nav('quiz',{pool:id,title:c.t+' Quiz'});$('#m3').onclick=()=>nav('match',{pool:id,title:c.t+' Match'});
+}
+let di=0,flip=false;
+function vDeck(){
+  const L=POOL(cur.pool);if(cur.i===undefined){cur.i=0;cur.flip=false}
+  const w=L[cur.i],kn=!!P.known[w.id];
+  $('#main').innerHTML=`<div class="row sp" style="margin-bottom:8px"><span class="sub">${cur.i+1} / ${L.length}</span><div class="bar" style="flex:1"><i style="width:${(cur.i+1)*100/L.length}%"></i></div></div>
+  <div class="card fc" id="fc">${cur.flip?`<div class="sym">${w.sym.length<4?w.sym:''}</div><div class="mid" style="font-weight:800">${esc(w.en)}</div><div class="sub" style="font-size:18px;margin-top:6px">${esc(w.tr)}</div>${w.from?`<div class="sub" style="margin-top:8px">Found in: ${esc(w.from)}</div>`:''}<div class="ar mid" style="margin-top:10px">${w.ar}</div>`:`<div class="sym">${w.sym.length<4&&w.cat!=='quran'?w.sym:''}</div><div class="ar big">${w.ar}</div><div class="sub" style="margin-top:10px">Tap the card to see the meaning</div>`}</div>
+  <div class="row sp"><button id="pv" ${cur.i?'':'disabled'}>‹</button><button id="sp">🔊 Listen</button><button class="${kn?'pri':'gold'}" id="kw">${kn?'✓ Learned':'I know it!'}</button><button id="nx" ${cur.i<L.length-1?'':'disabled'}>›</button></div>`;
+  $('#fc').onclick=()=>{cur.flip=!cur.flip;vDeck()};$('#pv').onclick=()=>{cur.i--;cur.flip=false;vDeck()};$('#nx').onclick=()=>{cur.i++;cur.flip=false;vDeck()};
+  $('#sp').onclick=()=>speak(w.ar);
+  $('#kw').onclick=()=>{if(!P.known[w.id]){P.known[w.id]=1;addStars(1);toast('+1 ⭐ Well done!')}else delete P.known[w.id];saveP();if(cur.i<L.length-1&&P.known[w.id]){cur.i++;cur.flip=false}render()};
+}
+function vQuiz(){
+  if(!cur.q){const pool=POOL(cur.pool),Q=shuf(pool).slice(0,10).map((w,i)=>{const mode=i%2,wr=shuf(pool.filter(x=>x.id!==w.id&&(mode?x.ar:x.en)!==(mode?w.ar:w.en))).slice(0,3);return {w,mode,opts:shuf([w,...wr])}});cur.q=Q;cur.n=0;cur.sc=0;cur.ans=-1}
+  if(cur.n>=cur.q.length){const s=cur.sc;if(!cur.paid){cur.paid=1;addStars(s)}
+    $('#main').innerHTML=`<div class="card" style="text-align:center"><div style="font-size:60px">${s>=8?'🏆':s>=5?'🌟':'💪'}</div><h2>${s} / ${cur.q.length}</h2><div class="sub">You earned ${s} ⭐</div></div><button class="pri" style="width:100%;margin-bottom:10px" id="ag">Play again</button><button style="width:100%" id="bk2">Back</button>`;
+    $('#ag').onclick=()=>{delete cur.q;cur.paid=0;vQuiz()};$('#bk2').onclick=back;cur.paid&&0;return}
+  const q=cur.q[cur.n],w=q.w;
+  $('#main').innerHTML=`<div class="row sp" style="margin-bottom:8px"><span class="sub">Question ${cur.n+1} / ${cur.q.length}</span><span class="pill">Score ${cur.sc}</span></div>
+  <div class="card" style="text-align:center">${q.mode?`<div class="sub">Which Arabic word means…</div><div class="mid" style="font-weight:800;margin:8px 0">${esc(w.en)}</div>${w.sym.length<4&&w.cat!=='quran'?`<div style="font-size:44px">${w.sym}</div>`:''}`:`<div class="sub">What does this word mean?</div><div class="ar big">${w.ar}</div><button class="sm" id="sp">🔊</button>`}</div>
+  ${q.opts.map((o,i)=>`<button class="opt ${cur.ans>=0?(o.id===w.id?'ok':(cur.ans===i?'bad':'')):''}" data-o="${i}" ${cur.ans>=0?'disabled':''}>${q.mode?`<span class="ar mid" style="display:block;line-height:1.5">${o.ar}</span>`:esc(o.en)}</button>`).join('')}`;
+  if($('#sp'))$('#sp').onclick=()=>speak(w.ar);
+  document.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>{const i=+b.dataset.o;cur.ans=i;if(q.opts[i].id===w.id)cur.sc++;vQuiz();setTimeout(()=>{cur.n++;cur.ans=-1;if(cur.v==='quiz')vQuiz()},900)});
+}
+function vMatch(){
+  if(!cur.t){const w=shuf(POOL(cur.pool)).slice(0,6);cur.t=shuf(w.flatMap(x=>[{id:x.id,k:'a',txt:x.ar},{id:x.id,k:'e',txt:x.en}]));cur.sel=-1;cur.done={};cur.tries=0}
+  const all=Object.keys(cur.done).length===cur.t.length;
+  $('#main').innerHTML=`<div class="sub" style="text-align:center;margin-bottom:8px">Tap an Arabic word, then its meaning. Tries: ${cur.tries}</div><div class="grid">${cur.t.map((x,i)=>`<button class="mt ${cur.done[i]?'done':cur.sel===i?'sel':''}" data-i="${i}" ${cur.done[i]?'disabled':''}>${x.k==='a'?`<span class="ar mid" style="line-height:1.4">${x.txt}</span>`:esc(x.txt)}</button>`).join('')}</div>
+  ${all?`<div class="card" style="text-align:center;margin-top:14px"><div style="font-size:50px">🎉</div><b>Great job! +3 ⭐</b></div><button class="pri" style="width:100%" id="ag">Play again</button>`:''}`;
+  if(all&&!cur.paid){cur.paid=1;addStars(3)}
+  if($('#ag'))$('#ag').onclick=()=>{delete cur.t;cur.paid=0;vMatch()};
+  document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(cur.sel<0){cur.sel=i;if(cur.t[i].k==='a')speak(cur.t[i].txt)}else if(cur.sel===i){cur.sel=-1}else{const a=cur.t[cur.sel],c=cur.t[i];cur.tries++;if(a.id===c.id&&a.k!==c.k){cur.done[cur.sel]=cur.done[i]=1}cur.sel=-1}vMatch()});
+}
+function vSurahs(){
+  $('#main').innerHTML=SURAHS.map((s,i)=>`<div class="card row" data-s="${i}" style="cursor:pointer"><div class="ar mid" style="min-width:110px">${s.ar}</div><div style="flex:1"><b>${s.en}</b><div class="sub">${s.note} · ${s.v.length} verses</div></div>${P.surah[s.id]?'<span class="star" style="font-size:24px">⭐</span>':'›'}</div>`).join('')+`<div class="sub" style="text-align:center">Learn the recitation from a teacher, then practice here. 💛</div>`;
+  document.querySelectorAll('[data-s]').forEach(e=>e.onclick=()=>nav('surah',{i:+e.dataset.s,title:SURAHS[+e.dataset.s].en,mean:true,cover:false,rev:{}}));
+}
+function vSurah(){
+  const s=SURAHS[cur.i];
+  $('#main').innerHTML=`<div class="card" style="text-align:center"><div class="ar big" style="font-size:44px">${s.ar}</div><div class="sub">${s.note}</div>${cur.i?'<div class="ar mid" style="margin-top:6px">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div><div class="sub">Begin with Bismillah</div>':''}</div>
+  <div class="row wrap" style="margin-bottom:10px"><button class="sm ${cur.mean?'pri':''}" id="tm">Meaning ${cur.mean?'on':'off'}</button><button class="sm ${cur.cover?'gold':''}" id="tc">${cur.cover?'Practice: ON':'Practice mode'}</button></div>
+  <div class="card" style="padding:6px 10px">${s.v.map((v,k)=>{const words=v[0].split(' ');const hidden=cur.cover;const r=cur.rev[k]||0;return `<div class="verse" data-v="${k}"><div style="text-align:right"><span class="vn">${k+1}</span></div><div class="ar mid" style="font-size:30px">${hidden&&r<words.length?words.map((w,j)=>j<r?w:'<span class="hid"></span>').join(' '):v[0]}</div>${cur.mean&&(!hidden||r>=words.length)?`<div class="sub" style="text-align:center;font-size:14px">${esc(v[1])}</div>`:''}</div>`}).join('')}</div>
+  ${cur.cover?'<div class="sub" style="text-align:center">Tap a verse to reveal it word by word.</div>':''}
+  <button class="${P.surah[s.id]?'pri':'gold'}" style="width:100%;margin-top:12px" id="md">${P.surah[s.id]?'✓ I memorized this surah':'I memorized this surah! (+5 ⭐)'}</button>`;
+  $('#tm').onclick=()=>{cur.mean=!cur.mean;vSurah()};$('#tc').onclick=()=>{cur.cover=!cur.cover;cur.rev={};vSurah()};
+  document.querySelectorAll('[data-v]').forEach(e=>e.onclick=()=>{if(!cur.cover)return;const k=+e.dataset.v,n=s.v[k][0].split(' ').length;cur.rev[k]=Math.min(n,(cur.rev[k]||0)+1);vSurah()});
+  $('#md').onclick=()=>{if(!P.surah[s.id]){P.surah[s.id]=1;addStars(5);toast('MashaAllah! +5 ⭐')}else delete P.surah[s.id];saveP();render()};
+}
+function vStories(){
+  $('#main').innerHTML=STORIES.map((s,i)=>`<div class="card row" data-s="${i}" style="cursor:pointer"><div style="font-size:34px">📜</div><div style="flex:1"><div class="ar mid" style="text-align:right;font-size:26px">${s.ar}</div><b>${s.en}</b><div class="sub">${s.s.length} sentences</div></div>${P.story[s.id]?'<span class="star" style="font-size:24px">⭐</span>':'›'}</div>`).join('');
+  document.querySelectorAll('[data-s]').forEach(e=>e.onclick=()=>nav('story',{i:+e.dataset.s,title:STORIES[+e.dataset.s].en,show:{},ans:-1}));
+}
+function vStory(){
+  const s=STORIES[cur.i],q=s.q;
+  $('#main').innerHTML=`<div class="card" style="text-align:center"><div class="ar mid">${s.ar}</div><div class="sub">Tap a sentence to see the English. 🔊 reads it aloud.</div></div>
+  ${s.s.map((x,k)=>`<div class="sent" data-k="${k}"><div class="ar" style="font-size:26px">${x[0]}</div>${cur.show[k]?`<div class="sub" style="text-align:center;font-size:15px;margin-top:4px">${esc(x[1])}</div>`:''}<div style="text-align:center"><button class="sm ghost" data-sp="${k}">🔊</button></div></div>`).join('')}
+  <div class="card" style="margin-top:14px"><b>Question</b><div style="margin:6px 0">${esc(q[0])}</div>${q[1].map((o,i)=>`<button class="opt ${cur.ans>=0?(i===q[2]?'ok':cur.ans===i?'bad':''):''}" data-q="${i}" ${cur.ans>=0?'disabled':''}>${esc(o)}</button>`).join('')}</div>`;
+  document.querySelectorAll('[data-k]').forEach(e=>e.onclick=()=>{const k=+e.dataset.k;cur.show[k]=!cur.show[k];vStory()});
+  document.querySelectorAll('[data-sp]').forEach(b=>b.onclick=e=>{e.stopPropagation();speak(s.s[+b.dataset.sp][0])});
+  document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{cur.ans=+b.dataset.q;if(cur.ans===q[2]&&!P.story[s.id]){P.story[s.id]=1;addStars(3);toast('Correct! +3 ⭐')}vStory()});
+}
+render();
+</script></body></html>
