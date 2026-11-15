@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY, title TEXT, date TEXT,
 CREATE TABLE IF NOT EXISTS lessons(id INTEGER PRIMARY KEY, title TEXT, kind TEXT, body TEXT, created INTEGER);
 CREATE TABLE IF NOT EXISTS wazes(id INTEGER PRIMARY KEY, title TEXT, file TEXT, size INTEGER, created INTEGER);
 CREATE TABLE IF NOT EXISTS track(user INTEGER, day TEXT, salah INTEGER DEFAULT 0, pages INTEGER DEFAULT 0, PRIMARY KEY(user, day));
+CREATE TABLE IF NOT EXISTS wlearn(user INTEGER, word TEXT, day TEXT, PRIMARY KEY(user, word));
 CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY, v TEXT);
 `);
 const q = (sql, ...a) => db.prepare(sql).all(...a);
@@ -116,12 +117,15 @@ const trackMsg = uid => ({ t: 'track', trk: q('SELECT day, salah, pages, mins FR
 try { db.exec('ALTER TABLE track ADD COLUMN mins INTEGER DEFAULT 0'); } catch (e) { }
 const bits = n => { let c = 0; for (let i = 0; i < 5; i++) if (n & (1 << i)) c++; return c; };
 
+const wlMsg = uid => ({ t: 'wl', wl: q('SELECT word FROM wlearn WHERE user=?', uid).map(r => r.word) });
 // weekly winners (week runs Saturday to Friday; parents are not in the contest)
 const addDays = (str, n) => { const d = new Date(str + 'T00:00:00'); d.setDate(d.getDate() + n); return dayStr(d); };
 function winners() {
   const sinceSat = (new Date().getDay() + 1) % 7, curStart = dayAgo(sinceSat), lastStart = addDays(curStart, -7), lastEnd = addDays(curStart, -1);
   const top = (col, from, to) => { const rows = q(`SELECT u.id, u.name, u.avatar, u.color, SUM(t.${col}) v FROM track t JOIN users u ON u.id=t.user WHERE t.day>=? AND t.day<=? AND u.role!='admin' GROUP BY u.id HAVING v>0 ORDER BY v DESC`, from, to); return rows.filter(r => r.v === (rows[0] || {}).v); };
-  return { wk: lastStart, last: { quran: top('pages', lastStart, lastEnd), study: top('mins', lastStart, lastEnd) }, cur: { quran: top('pages', curStart, today()), study: top('mins', curStart, today()) } };
+  const wrows = (from, to) => q("SELECT u.id, u.name, u.avatar, u.color, COUNT(*) v FROM wlearn w JOIN users u ON u.id=w.user WHERE w.day>=? AND w.day<=? AND u.role!='admin' GROUP BY u.id ORDER BY v DESC", from, to);
+  const topW = rows => rows.filter(r => r.v === (rows[0] || {}).v), target = +getSet('wtarget') || 15, lw = wrows(lastStart, lastEnd), cw = wrows(curStart, today());
+  return { wk: lastStart, target, last: { quran: top('pages', lastStart, lastEnd), study: top('mins', lastStart, lastEnd), words: topW(lw), hit: lw.filter(r => r.v >= target) }, cur: { quran: top('pages', curStart, today()), study: top('mins', curStart, today()), words: topW(cw), board: cw } };
 }
 
 // ---------- websocket handling ----------
@@ -159,6 +163,14 @@ function handle(c, m) {
       all({ t: 'win', win: winners() });
       return;
     }
+    case 'word:learn': {
+      const id = String(m.id || ''); if (!/^[a-z]{1,6}:\d{1,3}$/.test(id)) return;
+      run('INSERT OR IGNORE INTO wlearn(user,word,day) VALUES(?,?,?)', me.id, id, today());
+      for (const o of clients) if (o.user.id === me.id) send(o.ws, wlMsg(me.id));
+      all({ t: 'win', win: winners() });
+      return;
+    }
+    case 'journey:target': { if (!admin) return; const n = Math.max(3, Math.min(100, Math.round(+m.n || 0))); setSet('wtarget', String(n)); all({ t: 'win', win: winners() }); return; }
     case 'study:add': {
       const mins = Math.max(1, Math.min(180, Math.round(+m.mins || 0)));
       run('INSERT INTO track(user,day,salah,pages,mins) VALUES(?,?,0,0,?) ON CONFLICT(user,day) DO UPDATE SET mins=MIN(600, COALESCE(mins,0)+excluded.mins)', me.id, today(), mins);
@@ -283,7 +295,7 @@ wss.on('connection', (ws, req) => {
   const c = { ws, user: u }; clients.add(c);
   const init = { t: 'init', me: u, code: u.role === 'admin' ? getSet('code') : undefined, chat: chatRows(), rooms: rooms.list(), room: (() => { const r = rooms.roomOf(u.id); return r ? rooms.view(r, u.id) : null; })(), locks: Object.fromEntries([...locks].filter(([k]) => lockOf(k)).map(([k, v]) => [k, v.u])), day: today(), games: GAMES };
   for (const k of ['users', 'deeds', 'events', 'photos', 'notes', 'lessons', 'wazes']) { const s = slices[k](); delete s.t; Object.assign(init, s); }
-  { const tm = trackMsg(u.id); delete tm.t; Object.assign(init, tm); init.win = winners(); }
+  { const tm = trackMsg(u.id); delete tm.t; Object.assign(init, tm); init.win = winners(); const wm = wlMsg(u.id); init.wl = wm.wl; }
   send(ws, init);
   all(slices.users());
   ws.on('message', d => { let m; try { m = JSON.parse(d); } catch { return; } try { handle(c, m); } catch (e) { console.error('msg error', e); } });

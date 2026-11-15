@@ -65,7 +65,7 @@ canvas{width:100%;border-radius:16px;background:#fff7e6;touch-action:none;displa
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let token=null;try{token=localStorage.getItem('cousin_token')}catch(e){}
-let S={win:null,trk:[],trkTotal:0,wazes:[],lessons:[],users:[],online:[],chat:[],notes:[],locks:{},deeds:[],tdone:[],once:[],board:[],week:[],events:[],photos:[],rooms:[],room:null,games:{},typing:{},unread:0};
+let S={wl:[],win:null,trk:[],trkTotal:0,wazes:[],lessons:[],users:[],online:[],chat:[],notes:[],locks:{},deeds:[],tdone:[],once:[],board:[],week:[],events:[],photos:[],rooms:[],room:null,games:{},typing:{},unread:0};
 let albSel=null,me=null,ws=null,view='hub',wsOk=false,retry=0,openNote=null,album='All',viewer=null,lbTab='week';
 const U=id=>S.users.find(u=>u.id===id)||{id,name:'Someone',avatar:'🌟',color:'#ccc'};
 const AVOK=['🌸','🌟','🌙','🕌','🌺','🍀','🌈','🚀','⚽','🎈','🍎','🌻'];const fav=u=>AVOK.includes(u.avatar)?u.avatar:'🌟';
@@ -91,7 +91,8 @@ function on(m){
     case 'users':case 'deeds':case 'events':case 'photos':case 'notes':case 'lessons':case 'wazes':{const{t,...rest}=m;Object.assign(S,rest);if(m.t==='users'){me=S.users.find(u=>u.id===me.id)||me}refresh(m.t);break}
     case 'track':S.trk=m.trk;S.trkTotal=m.trkTotal;if(view==='track')render();break;
     case 'track:all':showFamilyTrack(m);break;
-    case 'win':S.win=m.win;if(view==='learn')render();break;
+    case 'win':S.win=m.win;if(view==='learn'||view==='journey'&&jv.mode==='map')render();break;
+    case 'wl':S.wl=m.wl;break;
     case 'locks':S.locks=m.locks;if(view==='note')paintNote();if(view==='notes')render();break;
     case 'chat':S.chat.push(m.m);if(S.chat.length>300)S.chat.shift();if(view==='chat'){addMsg(m.m);send({t:'seen'})}else if(m.m.user!==me.id){S.unread++;if(view==='hub')render()}break;
     case 'chat:del':S.chat=S.chat.filter(x=>x.id!==m.id);if(view==='chat')paintChat();break;
@@ -141,14 +142,14 @@ function login(msg){
 }
 
 /* ---------- shell ---------- */
-const TITLES={hub:'Cousin Heaven ✨',chat:'Family Chat',notes:'Our Notes',note:'Note',deeds:'Good Deeds',album:'Our Album',learn:'Learning Zone',waz:'Listen to Waz',track:'Salah & Quran',calendar:'Special Days',play:'Play Zone'};
+const TITLES={hub:'Cousin Heaven ✨',chat:'Family Chat',notes:'Our Notes',note:'Note',deeds:'Good Deeds',album:'Our Album',learn:'Learning Zone',waz:'Listen to Waz',track:'Salah & Quran',journey:'Arabic Journey',calendar:'Special Days',play:'Play Zone'};
 function go(v){if(S.room&&view==='play'&&v!=='play'&&S.room.state==='playing'){toast('Finish or leave your game first');return}view=v;if(v==='chat')S.unread=0;render();scrollTo(0,0)}
 function render(){
   if(!me)return;clearInterval(stT);
   $('#hd').innerHTML=(view==='hub'?'':'<button class="ghost" id="bk" style="font-size:22px">‹</button>')+`<h1>${TITLES[view]}</h1><button class="ghost" id="pf">${av(me.id)}</button>`;
   if($('#bk'))$('#bk').onclick=()=>{if(view==='note'){send({t:'note:unlock',id:openNote});view='notes'}else if(view==='play'&&S.room){leaveRoom();return}else view='hub';render()};
   $('#pf').onclick=profile;
-  ({hub:vHub,chat:vChat,notes:vNotes,note:vNote,deeds:vDeeds,album:vAlbum,learn:vLearn,waz:vWaz,track:vTrack,calendar:vCal,play:vPlay}[view]||vHub)();
+  ({hub:vHub,chat:vChat,notes:vNotes,note:vNote,deeds:vDeeds,album:vAlbum,learn:vLearn,waz:vWaz,track:vTrack,journey:vJourney,calendar:vCal,play:vPlay}[view]||vHub)();
 }
 function sheet(html,mount){closeSheet();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div class="sheet">'+html+'</div>';m.onclick=e=>{if(e.target===m)closeSheet()};document.body.appendChild(m);mount&&mount(m)}
 function closeSheet(){const m=$('#modal');if(m)m.remove()}
@@ -158,7 +159,7 @@ const nextOcc=e=>{const t=new Date();t.setHours(0,0,0,0);let d=new Date(e.date+'
 /* ---------- hub ---------- */
 function vHub(){
   const ev=S.events.map(e=>({...e,n:nextOcc(e)})).filter(e=>e.n>=0).sort((a,b)=>a.n-b.n)[0];
-  const T=[['play','🎮','Play Zone','#8b6cf6'],['chat','💬','Chat','#ff7aa2'],['notes','📝','Our Notes','#2bb8ae'],['deeds','⭐','Good Deeds','#f7b731'],['album','📸','Album','#ef7d57'],['learn','📚','Learning','#4c9be8'],['waz','🎧','Listen to Waz','#3a8f6b'],['track','📿','Salah & Quran','#5b7fe0'],['calendar','🎂','Special Days','#e0679c']];
+  const T=[['play','🎮','Play Zone','#8b6cf6'],['chat','💬','Chat','#ff7aa2'],['notes','📝','Our Notes','#2bb8ae'],['deeds','⭐','Good Deeds','#f7b731'],['album','📸','Album','#ef7d57'],['learn','📚','Learning','#4c9be8'],['waz','🎧','Listen to Waz','#3a8f6b'],['track','📿','Salah & Quran','#5b7fe0'],['journey','🗺️','Arabic Journey','#d9822b'],['calendar','🎂','Special Days','#e0679c']];
   const total=S.board.reduce((a,b)=>a+b.pts,0);
   $('#main').innerHTML=`<div class="card row"><div style="font-size:30px">👋</div><div style="flex:1"><b>Assalamu alaikum, ${esc(me.name)}!</b><div class="sub">${S.online.length} cousin${S.online.length==1?'':'s'} online · family stars: ${total} ⭐</div></div></div>
   <div class="row wrap" style="margin-bottom:10px">${S.users.map(u=>av(u.id)).join('')}</div>
@@ -300,6 +301,61 @@ function vTrack(){
 function showFamilyTrack(m){
   sheet(`<div class="row sp"><h3 style="margin:0">Family overview</h3><button class="ghost" onclick="closeSheet()">✕</button></div><div class="sub" style="margin-bottom:8px">Last 7 days</div>${m.members.map(u=>`<div class="card" style="box-shadow:none;border:2px solid var(--line)"><div class="row"><span class="av" style="background:${u.color}">${AVOK.includes(u.avatar)?u.avatar:'🌟'}</span><b style="flex:1">${esc(u.name)}</b></div><div class="row sp" style="margin-top:6px"><span>🕌 ${u.weekSalah}/35</span><span>📖 ${u.weekPages} pages</span><span class="sub">total ${u.total}</span></div><div class="bar" style="margin-top:6px"><i style="width:${u.weekSalah/35*100}%"></i></div></div>`).join('')}`);
 }
+const JCATS=[
+ {id:'num',t:'Numbers',e:'🔢',c:'#4c9be8',w:[['وَاحِد','wāḥid','one','1'],['اثْنَان','ithnān','two','2'],['ثَلَاثَة','thalātha','three','3'],['أَرْبَعَة','arbaʿa','four','4'],['خَمْسَة','khamsa','five','5'],['سِتَّة','sitta','six','6'],['سَبْعَة','sabʿa','seven','7'],['ثَمَانِيَة','thamāniya','eight','8'],['تِسْعَة','tisʿa','nine','9'],['عَشَرَة','ʿashara','ten','10']]},
+ {id:'col',t:'Colors',e:'🎨',c:'#e0679c',w:[['أَحْمَر','aḥmar','red','🔴'],['أَزْرَق','azraq','blue','🔵'],['أَخْضَر','akhḍar','green','🟢'],['أَصْفَر','aṣfar','yellow','🟡'],['أَبْيَض','abyaḍ','white','⚪'],['أَسْوَد','aswad','black','⚫'],['بُرْتُقَالِيّ','burtuqālī','orange','🟠'],['بَنَفْسَجِيّ','banafsajī','purple','🟣'],['بُنِّيّ','bunnī','brown','🟤']]},
+ {id:'food',t:'Food & Fruit',e:'🍎',c:'#ef7d57',w:[['تُفَّاحَة','tuffāḥa','apple','🍎'],['مَوْزَة','mawza','banana','🍌'],['بُرْتُقَالَة','burtuqāla','orange (fruit)','🍊'],['عِنَب','ʿinab','grapes','🍇'],['تَمْر','tamr','dates','🌴'],['لَيْمُون','laymūn','lemon','🍋'],['بِطِّيخ','biṭṭīkh','watermelon','🍉'],['فَرَاوِلَة','farāwila','strawberry','🍓'],['خُبْز','khubz','bread','🍞'],['حَلِيب','ḥalīb','milk','🥛'],['مَاء','māʾ','water','💧'],['عَسَل','ʿasal','honey','🍯'],['أَرُزّ','aruzz','rice','🍚']]},
+ {id:'nat',t:'Nature',e:'🌳',c:'#2bb8ae',w:[['شَمْس','shams','sun','☀️'],['قَمَر','qamar','moon','🌙'],['نَجْمَة','najma','star','⭐'],['سَمَاء','samāʾ','sky','🌌'],['أَرْض','arḍ','earth','🌍'],['بَحْر','baḥr','sea','🌊'],['جَبَل','jabal','mountain','⛰️'],['شَجَرَة','shajara','tree','🌳'],['زَهْرَة','zahra','flower','🌸'],['مَطَر','maṭar','rain','🌧️'],['نَار','nār','fire','🔥'],['رِيح','rīḥ','wind','💨']]},
+ {id:'home',t:'Home & Things',e:'🏠',c:'#8b6cf6',w:[['بَيْت','bayt','house','🏠'],['بَاب','bāb','door','🚪'],['كِتَاب','kitāb','book','📖'],['قَلَم','qalam','pen','✏️'],['مِفْتَاح','miftāḥ','key','🔑'],['سَاعَة','sāʿa','clock','⏰'],['كُرْسِيّ','kursī','chair','🪑'],['سَرِير','sarīr','bed','🛏️'],['مِصْبَاح','miṣbāḥ','lamp','💡'],['سَيَّارَة','sayyāra','car','🚗'],['مَسْجِد','masjid','mosque','🕌'],['كُرَة','kura','ball','⚽'],['حَقِيبَة','ḥaqība','bag','🎒']]},
+ {id:'fam',t:'Family',e:'💛',c:'#f7b731',w:[['أَب','ab','father','💛'],['أُمّ','umm','mother','💛'],['أَخ','akh','brother','💛'],['أُخْت','ukht','sister','💛'],['جَدّ','jadd','grandfather','💛'],['جَدَّة','jadda','grandmother','💛'],['عَمّ','ʿamm','uncle (father’s brother)','💛'],['خَال','khāl','uncle (mother’s brother)','💛'],['عَمَّة','ʿamma','aunt (father’s sister)','💛'],['خَالَة','khāla','aunt (mother’s sister)','💛']]},
+ {id:'day',t:'Days of the Week',e:'📅',c:'#6b4fa0',w:[['الْأَحَد','al-aḥad','Sunday','1'],['الِاثْنَيْن','al-ithnayn','Monday','2'],['الثُّلَاثَاء','ath-thulāthāʾ','Tuesday','3'],['الْأَرْبِعَاء','al-arbiʿāʾ','Wednesday','4'],['الْخَمِيس','al-khamīs','Thursday','5'],['الْجُمُعَة','al-jumuʿa','Friday (day of Jumuʿa)','🕌'],['السَّبْت','as-sabt','Saturday','7']]},
+ {id:'say',t:'Good Words',e:'🤲',c:'#3a8f6b',w:[['السَّلَامُ عَلَيْكُمْ','as-salāmu ʿalaykum','peace be upon you','🤲'],['وَعَلَيْكُمُ السَّلَام','wa ʿalaykumu s-salām','and upon you peace','🤲'],['شُكْرًا','shukran','thank you','💛'],['عَفْوًا','ʿafwan','you’re welcome','💛'],['مِنْ فَضْلِك','min faḍlik','please','💛'],['بِسْمِ اللَّه','bismillāh','in the name of Allah','🤲'],['الْحَمْدُ لِلَّه','alḥamdu lillāh','all praise is for Allah','🤲'],['إِنْ شَاءَ اللَّه','in shāʾ Allāh','if Allah wills','🤲'],['مَا شَاءَ اللَّه','mā shāʾ Allāh','what Allah has willed (wonderful!)','🤲'],['جَزَاكَ اللَّهُ خَيْرًا','jazāka llāhu khayran','may Allah reward you with good','🤲'],['صَبَاحُ الْخَيْر','ṣabāḥu l-khayr','good morning','🌅'],['مَسَاءُ الْخَيْر','masāʾu l-khayr','good evening','🌆']]}
+];
+const JQW=[['اللَّه','Allāh','Allah (God)','every surah'],['رَبّ','Rabb','Lord, who creates and looks after us','Fatiha, Nas'],['الرَّحْمَٰن','Ar-Raḥmān','The Most Merciful','Fatiha'],['الرَّحِيم','Ar-Raḥīm','The Most Kind','Fatiha'],['الْحَمْد','Al-Ḥamd','praise','Fatiha'],['الْعَالَمِين','Al-ʿĀlamīn','all the worlds','Fatiha'],['يَوْم','Yawm','day','Fatiha'],['دِين','Dīn','religion; judgement','Fatiha, Kafirun'],['نَعْبُد','Naʿbud','we worship','Fatiha'],['صِرَاط','Ṣirāṭ','path','Fatiha'],['مُسْتَقِيم','Mustaqīm','straight','Fatiha'],
+['قُلْ','Qul','say!','Ikhlas, Falaq, Nas, Kafirun'],['أَحَد','Aḥad','One','Ikhlas'],['صَمَد','Ṣamad','the Self-Sufficient, needed by all','Ikhlas'],['كُفُو','Kufuwan','equal','Ikhlas'],
+['أَعُوذ','Aʿūdhu','I seek refuge','Falaq, Nas'],['فَلَق','Falaq','daybreak','Falaq'],['شَرّ','Sharr','evil','Falaq, Nas'],['خَلَقَ','Khalaqa','He created','Falaq'],
+['نَاس','Nās','people, mankind','Nas, Asr'],['مَلِك','Malik','King','Nas'],['إِلَٰه','Ilāh','God','Nas'],
+['كَوْثَر','Kawthar','abundant good','Kawthar'],['صَلِّ','Ṣalli','pray','Kawthar'],
+['عَصْر','ʿAṣr','time (afternoon)','Asr'],['إِنسَان','Insān','human being','Asr'],['خُسْر','Khusr','loss','Asr'],['آمَنُوا','Āmanū','they believed','Asr'],['حَقّ','Ḥaqq','the truth','Asr'],['صَبْر','Ṣabr','patience','Asr'],
+['نَصْر','Naṣr','help, victory','Nasr'],['فَتْح','Fatḥ','the opening, victory','Nasr'],['فَسَبِّحْ','Fa-sabbiḥ','so glorify','Nasr'],['اسْتَغْفِرْ','Istaghfir','ask forgiveness','Nasr'],['تَوَّاب','Tawwāb','Ever-Accepting of repentance','Nasr'],
+['بَيْت','Bayt','house (the Kaaba)','Quraysh'],['جُوع','Jūʿ','hunger','Quraysh'],['خَوْف','Khawf','fear','Quraysh']];
+/* ---------- arabic word journey ---------- */
+const JSTAGES=[],JW={};
+(()=>{JCATS.forEach(c=>{const n=Math.ceil(c.w.length/10),sz=Math.ceil(c.w.length/n);for(let p=0;p<n;p++){const ids=[];c.w.slice(p*sz,p*sz+sz).forEach((w,k)=>{const id=c.id+':'+(p*sz+k);JW[id]={id,ar:w[0],tr:w[1],en:w[2],sym:w[3],cat:c.id};ids.push(id)});JSTAGES.push({t:c.t+(n>1?' '+(p+1):''),e:c.e,c:c.c,ids})}});
+  const n=Math.ceil(JQW.length/10),sz=Math.ceil(JQW.length/n);for(let p=0;p<n;p++){const ids=[];JQW.slice(p*sz,p*sz+sz).forEach((w,k)=>{const id='q:'+(p*sz+k);JW[id]={id,ar:w[0],tr:w[1],en:w[2],sym:'📖',cat:'q',from:w[3]};ids.push(id)});JSTAGES.push({t:'Quran Words '+(p+1),e:'📖',c:'#2bb8ae',ids})}})();
+let jv={mode:'map'};
+const wlSet=()=>new Set(S.wl||[]);
+const stageDone=(st,L)=>st.ids.every(i=>L.has(i));
+function vJourney(){
+  const L=wlSet(),W=S.win||{cur:{board:[],words:[]},last:{words:[],hit:[]},target:15};
+  if(jv.mode==='study'){const st=JSTAGES[jv.i];$('#main').innerHTML=`<button class="sm" id="jb" style="margin-bottom:10px">‹ Journey</button><div class="card"><b>${st.e} ${st.t}</b><div class="sub">Read the words, then take the quiz.</div></div>${st.ids.map(i=>{const w=JW[i];return `<div class="card row"><div class="ar-w" style="font-family:'Noto Naskh Arabic','Amiri',serif;font-size:30px;min-width:120px;text-align:center;direction:rtl">${w.ar}</div><div style="flex:1"><b>${esc(w.en)}</b><div class="sub">${esc(w.tr)}${w.from?' · '+esc(w.from):''}</div></div>${L.has(i)?'✅':''}</div>`}).join('')}<button class="pri" style="width:100%" id="jq">🎯 Start the quiz</button>`;$('#jb').onclick=()=>{jv={mode:'map'};vJourney()};$('#jq').onclick=()=>{startQuiz(jv.i)};return}
+  if(jv.mode==='quiz'){drawJQ();return}
+  const me_=(W.cur.board||[]).find(x=>x.id===me.id),mine=me_?me_.v:0,T=W.target||15,board=W.cur.board||[],mx=Math.max(1,T,...board.map(b=>b.v));
+  const done=JSTAGES.filter(st=>stageDone(st,L)).length;let firstOpen=JSTAGES.findIndex(st=>!stageDone(st,L));
+  $('#main').innerHTML=`<div class="card"><div class="row sp"><b>🎯 Weekly target</b><span class="pill">${mine} / ${T} words</span></div><div class="bar" style="margin-top:8px"><i style="width:${Math.min(100,mine/T*100)}%"></i></div><div class="sub" style="margin-top:4px">${mine>=T?'🎉 Target reached! MashaAllah!':'Learn '+(T-mine)+' more word'+(T-mine==1?'':'s')+' by Friday'}${me.role==='admin'?' · <a id="jt" style="text-decoration:underline;cursor:pointer">change target</a>':''}</div></div>
+  <div class="card"><b>🏆 This week</b>${board.length?board.map((b,k)=>`<div class="lb"><span style="width:20px">${k+1}</span>${av(b.id,'sm')}<div style="flex:1"><div class="bar"><i style="width:${b.v/mx*100}%"></i></div></div><b>${b.v}</b>${b.v>=T?'🎯':''}</div>`).join(''):'<div class="sub">Nobody has learned a word yet this week. Be the first!</div>'}
+  ${W.last.words.length?`<div class="sub" style="margin-top:8px">Last week's winner: ${wnames(W.last.words)} (${W.last.words[0].v} words)${W.last.hit.length?' · 🎯 reached the target: '+W.last.hit.map(x=>esc(x.name)).join(', '):''}</div>`:''}</div>
+  <div class="sub" style="margin:4px 2px 8px">Journey: ${done} of ${JSTAGES.length} stages · ${L.size} words learned</div>
+  ${JSTAGES.map((st,i)=>{const dn=stageDone(st,L),open=i<=firstOpen||dn,cnt=st.ids.filter(x=>L.has(x)).length;return `<div class="card row" data-s="${i}" style="${open?'cursor:pointer':'opacity:.55'};border-left:8px solid ${st.c}"><div style="font-size:30px">${open?st.e:'🔒'}</div><div style="flex:1"><b>${st.t}</b><div class="sub">${cnt} / ${st.ids.length} words</div></div>${dn?'⭐':open?'▶':''}</div>`}).join('')}`;
+  document.querySelectorAll('[data-s]').forEach(e=>e.onclick=()=>{const i=+e.dataset.s;if(i>firstOpen&&!stageDone(JSTAGES[i],L)){toast('Finish the earlier stages first 🔒');return}jv={mode:'study',i};vJourney()});
+  if($('#jt'))$('#jt').onclick=()=>sheet(`<h3>Weekly target</h3><div class="sub">How many new words each cousin should learn per week?</div><input id="jn" type="number" min="3" max="100" value="${T}" style="margin-top:10px"><div class="row" style="justify-content:flex-end;margin-top:12px"><button onclick="closeSheet()">Cancel</button><button class="pri" id="jok">Save</button></div>`,()=>$('#jok').onclick=()=>{send({t:'journey:target',n:+$('#jn').value});closeSheet()});
+}
+function startQuiz(i){
+  const L=wlSet(),st=JSTAGES[i],q=st.ids.filter(x=>!L.has(x));
+  if(!q.length){toast('Stage already complete ⭐');jv={mode:'map'};vJourney();return}
+  jv={mode:'quiz',i,queue:shuf(q),ans:-1,got:0,total:q.length,opts:null};drawJQ();
+}
+const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+function drawJQ(){
+  const st=JSTAGES[jv.i];
+  if(!jv.queue.length){$('#main').innerHTML=`<div class="card" style="text-align:center"><div style="font-size:64px">🌟</div><h2>Stage complete!</h2><div class="sub">${jv.got} new word${jv.got==1?'':'s'} learned. MashaAllah!</div></div><button class="pri" style="width:100%" id="jd">Continue the journey</button>`;$('#jd').onclick=()=>{jv={mode:'map'};vJourney()};return}
+  const id=jv.queue[0],w=JW[id];
+  if(!jv.opts){const same=Object.values(JW).filter(x=>x.id!==id&&x.en!==w.en),pool=shuf(same.filter(x=>x.cat===w.cat)).concat(shuf(same));const seen=new Set([w.en]),wr=[];for(const x of pool){if(!seen.has(x.en)){seen.add(x.en);wr.push(x)}if(wr.length===3)break}jv.opts=shuf([w,...wr])}
+  $('#main').innerHTML=`<div class="row sp" style="margin-bottom:8px"><span class="sub">${st.e} ${st.t}</span><span class="pill">${jv.queue.length} left</span></div><div class="card" style="text-align:center"><div class="sub">What does this word mean?</div><div style="font-family:'Noto Naskh Arabic','Amiri',serif;font-size:56px;direction:rtl;line-height:1.7">${w.ar}</div><div class="sub">${esc(w.tr)}</div></div>
+  ${jv.opts.map((o,k)=>`<button style="display:block;width:100%;margin:8px 0;padding:14px;font-size:18px;${jv.ans>=0?(o.id===id?'background:#c8f7d4;border-color:#34c759':jv.ans===k?'background:#ffd6d6;border-color:#ef5350':''):''}" data-o="${k}" ${jv.ans>=0?'disabled':''}>${esc(o.en)}</button>`).join('')}<button class="sm" id="jx" style="margin-top:8px">Stop</button>`;
+  $('#jx').onclick=()=>{jv={mode:'map'};vJourney()};
+  document.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>{const k=+b.dataset.o;jv.ans=k;const ok=jv.opts[k].id===id;drawJQ();setTimeout(()=>{if(jv.mode!=='quiz')return;if(ok){jv.queue.shift();jv.got++;send({t:'word:learn',id})}else{jv.queue.push(jv.queue.shift())}jv.ans=-1;jv.opts=null;drawJQ()},ok?700:1300)});
+}
 /* ---------- calendar ---------- */
 function vCal(){
   const l=S.events.map(e=>({...e,n:nextOcc(e)})).sort((a,b)=>(a.n<0)-(b.n<0)||a.n-b.n);
@@ -355,10 +411,11 @@ let openLesson=null,stT=null;
 const fmtMin=m=>m>=60?Math.floor(m/60)+'h '+(m%60)+'m':m+' min';
 const wnames=a=>a.map(x=>`${AVOK.includes(x.avatar)?x.avatar:'🌟'} <b>${esc(x.name)}</b>`).join(', ');
 function maybeAnnounce(){
-  const W=S.win;if(!W||!W.last||(!W.last.quran.length&&!W.last.study.length))return;
+  const W=S.win;if(!W||!W.last||(!W.last.quran.length&&!W.last.study.length&&!(W.last.words||[]).length))return;
   let seen='';try{seen=localStorage.getItem('ch_win_seen')||''}catch(e){}if(seen===W.wk)return;try{localStorage.setItem('ch_win_seen',W.wk)}catch(e){}
   setTimeout(()=>sheet(`<div style="text-align:center"><div style="font-size:56px">🏆</div><h2 style="margin:4px 0">Last week's winners!</h2>
   ${W.last.quran.length?`<div class="card" style="margin-top:10px"><div class="sub">📖 Most Quran read</div><div style="font-size:19px;margin-top:4px">${wnames(W.last.quran)}</div><div class="sub">${W.last.quran[0].v} pages</div></div>`:''}
+  ${W.last.words&&W.last.words.length?`<div class="card"><div class="sub">🗺️ Most Arabic words learned</div><div style="font-size:19px;margin-top:4px">${wnames(W.last.words)}</div><div class="sub">${W.last.words[0].v} words${W.last.hit.length?' · 🎯 target reached by '+W.last.hit.map(x=>esc(x.name)).join(', '):''}</div></div>`:''}
   ${W.last.study.length?`<div class="card"><div class="sub">⏱ Most study time</div><div style="font-size:19px;margin-top:4px">${wnames(W.last.study)}</div><div class="sub">${fmtMin(W.last.study[0].v)}</div></div>`:''}
   <div style="font-size:26px">🎉🌟🎉</div><div class="sub">MashaAllah! A new week starts today.</div><button class="pri" style="width:100%;margin-top:10px" onclick="closeSheet()">Alhamdulillah!</button></div>`),600);
 }
