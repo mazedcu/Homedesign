@@ -88,7 +88,7 @@ QW.forEach((w,i)=>ALL.push({id:'q:'+i,ar:w[0],tr:w[1],en:w[2],sym:'📖',cat:'qu
 const POOL=id=>id==='all'?ALL:ALL.filter(w=>w.cat===id);
 // speech
 function speak(text){
-  try{if(window.Android&&Android.speak){const r=Android.speak(text);if(r==='missing')toast('Arabic voice not installed. Phone Settings → Text-to-speech → add Arabic.',4500);return}}catch(e){}
+  try{if(window.Android&&Android.speak){const r=Android.speak(text);if(r==='missing'){toast('Arabic voice for Google Text-to-speech is not installed. Opening the install screen…',4500);setTimeout(()=>{try{Android.installVoice()}catch(e){}},1200)}else if(r==='loading')toast('Voice is getting ready, try again in a moment.');return}}catch(e){}
   try{const u=new SpeechSynthesisUtterance(text);u.lang='ar-SA';u.rate=.8;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){toast('Sound is not available here.')}
 }
 // navigation

@@ -20,25 +20,49 @@ public class MainActivity extends Activity {
     private String arabicState = "loading"; // ok | missing | loading
 
     class Bridge {
+        /** Opens the phone's screen for installing Arabic voice data for Google Text-to-speech. */
+        @JavascriptInterface
+        public void installVoice() {
+            runOnUiThread(() -> {
+                try {
+                    android.content.Intent i = new android.content.Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA);
+                    i.setPackage("com.google.android.tts");
+                    startActivity(i);
+                } catch (Exception e) {
+                    try { startActivity(new android.content.Intent("com.android.settings.TTS_SETTINGS")); } catch (Exception e2) { }
+                }
+            });
+        }
         @JavascriptInterface
         public String speak(String text) {
             if (!ttsReady) return arabicState.equals("missing") ? "missing" : "loading";
             if ("missing".equals(arabicState)) return "missing";
-            tts.setSpeechRate(0.8f);
+            tts.setSpeechRate(0.75f);
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "u" + System.nanoTime());
             return "ok";
         }
     }
 
+    private void initTts(final String engine) {
+        tts = new TextToSpeech(this, status -> {
+            if (status != TextToSpeech.SUCCESS) {
+                if (engine != null) { // Google engine not available: use the phone's default engine
+                    runOnUiThread(() -> initTts(null));
+                    return;
+                }
+                arabicState = "missing"; ttsReady = true; return;
+            }
+            int r = tts.setLanguage(new Locale("ar"));
+            if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) r = tts.setLanguage(new Locale("ar", "SA"));
+            arabicState = (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) ? "missing" : "ok";
+            ttsReady = true;
+        }, engine);
+    }
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
-        tts = new TextToSpeech(this, status -> {
-            if (status != TextToSpeech.SUCCESS) { arabicState = "missing"; ttsReady = true; return; }
-            int r = tts.setLanguage(new Locale("ar"));
-            arabicState = (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) ? "missing" : "ok";
-            ttsReady = true;
-        });
+        initTts("com.google.android.tts");
         web = new WebView(this);
         web.setBackgroundColor(Color.parseColor("#fff7e8"));
         setContentView(web);
