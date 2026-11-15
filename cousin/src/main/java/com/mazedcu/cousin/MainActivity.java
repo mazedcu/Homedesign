@@ -28,8 +28,20 @@ public class MainActivity extends Activity {
             final String u = url;
             runOnUiThread(() -> web.loadUrl(u + "/"));
         }
+        @JavascriptInterface public String getCode() { return prefs.getString("code", ""); }
+        /** Accepts an invite code (server|familycode, base64) or a plain server address. */
+        @JavascriptInterface public boolean join(String invite) {
+            invite = invite.trim();
+            try {
+                String d = new String(android.util.Base64.decode(invite, android.util.Base64.URL_SAFE | android.util.Base64.NO_PADDING | android.util.Base64.NO_WRAP), "UTF-8");
+                int i = d.indexOf('|');
+                if (i > 0 && d.startsWith("http")) { prefs.edit().putString("code", d.substring(i + 1)).apply(); setServer(d.substring(0, i)); return true; }
+            } catch (Exception e) { }
+            if (invite.contains(".") || invite.contains(":")) { setServer(invite); return true; }
+            return false;
+        }
         @JavascriptInterface public void resetServer() {
-            prefs.edit().remove("server").apply();
+            prefs.edit().remove("server").remove("code").apply();
             runOnUiThread(() -> web.loadUrl("file:///android_asset/setup.html"));
         }
     }

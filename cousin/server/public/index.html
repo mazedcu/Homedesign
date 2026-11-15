@@ -144,10 +144,11 @@ function login(msg){
   $('#main').innerHTML=`<div style="text-align:center;margin:20px 0 8px"><div style="font-size:64px">🏡✨</div><h1 style="margin:4px 0">Cousin Heaven</h1><div class="sub">A safe, happy place for our family cousins</div></div>
   <div class="card"><label>Your name</label><input id="ln" maxlength="20" autocomplete="off" placeholder="e.g. Aisha">
   <label>Secret PIN (4 numbers)</label><input id="lp" type="password" inputmode="numeric" maxlength="4" placeholder="••••">
-  <label>Family code <span class="sub">(only the first time)</span></label><input id="lc" autocomplete="off" placeholder="Ask your parents">
+  <div id="lcw"><label>Family code <span class="sub">(only the first time)</span></label><input id="lc" autocomplete="off" placeholder="Ask your parents"></div>
   <div class="sub" id="lerr" style="color:var(--red);margin-top:8px">${esc(msg||'')}</div>
   <button class="pri" id="lgo" style="width:100%;margin-top:10px;font-size:18px">Let's go! 🚀</button>
   ${IN_APK?'<button class="ghost sm" id="lsrv" style="width:100%;margin-top:6px">Change server</button>':''}</div>`;
+  try{const ac=IN_APK&&Android.getCode&&Android.getCode()||new URLSearchParams(location.search).get('c')||'';if(ac){$('#lc').value=ac;$('#lcw').style.display='none'}}catch(e){}
   const go=async()=>{
     const name=$('#ln').value.trim(),pin=$('#lp').value,code=$('#lc').value.trim();
     if(name.length<2||!/^\d{4}$/.test(pin)){$('#lerr').textContent='Please type your name and a 4-number PIN.';shakeEl('.card');return}

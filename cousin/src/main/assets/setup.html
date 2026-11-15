@@ -4,9 +4,9 @@ input{width:100%;box-sizing:border-box;font:inherit;padding:14px;border:2px soli
 button{width:100%;font:inherit;font-weight:700;padding:14px;border:0;border-radius:14px;background:#ff7aa2;color:#fff}
 .e{color:#ef5350;display:none}</style></head><body>
 <div style="font-size:70px">🏡✨</div><h1>Cousin Heaven</h1>
-<p>Ask a parent for the family server address, then type it here (only once).</p>
-<p class="e" id="e">Could not reach the server. Check the address and your internet.</p>
-<input id="u" placeholder="e.g. http://123.45.67.89 or https://cousins.example.com" autocapitalize="none" autocomplete="off">
-<button onclick="var v=document.getElementById('u').value.trim();if(v)Android.setServer(v)">Connect</button>
+<p>Paste the invite code a parent sent you (only once).</p>
+<p class="e" id="e">Could not connect. Check the invite code and your internet.</p>
+<input id="u" placeholder="Invite code" autocapitalize="none" autocomplete="off">
+<button onclick="var v=document.getElementById('u').value.trim();if(v&&!Android.join(v))document.getElementById('e').style.display='block'">Connect</button>
 <script>if(location.search.indexOf('err')>0)document.getElementById('e').style.display='block';
-try{document.getElementById('u').value=Android.getServer()}catch(e){}</script></body></html>
+</script></body></html>
