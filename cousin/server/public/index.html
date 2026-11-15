@@ -65,8 +65,8 @@ canvas{width:100%;border-radius:16px;background:#fff7e6;touch-action:none;displa
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let token=null;try{token=localStorage.getItem('cousin_token')}catch(e){}
-let S={trk:[],trkTotal:0,wazes:[],lessons:[],users:[],online:[],chat:[],notes:[],locks:{},deeds:[],tdone:[],once:[],board:[],week:[],events:[],photos:[],rooms:[],room:null,games:{},typing:{},unread:0};
-let me=null,ws=null,view='hub',wsOk=false,retry=0,openNote=null,album='All',viewer=null,lbTab='week';
+let S={win:null,trk:[],trkTotal:0,wazes:[],lessons:[],users:[],online:[],chat:[],notes:[],locks:{},deeds:[],tdone:[],once:[],board:[],week:[],events:[],photos:[],rooms:[],room:null,games:{},typing:{},unread:0};
+let albSel=null,me=null,ws=null,view='hub',wsOk=false,retry=0,openNote=null,album='All',viewer=null,lbTab='week';
 const U=id=>S.users.find(u=>u.id===id)||{id,name:'Someone',avatar:'🌟',color:'#ccc'};
 const AVOK=['🌸','🌟','🌙','🕌','🌺','🍀','🌈','🚀','⚽','🎈','🍎','🌻'];const fav=u=>AVOK.includes(u.avatar)?u.avatar:'🌟';
 const av=(id,c='')=>{const u=U(id);return `<span class="av ${c} ${S.online.includes(id)?'dotOn':''}" style="background:${u.color}">${fav(u)}</span>`};
@@ -87,10 +87,11 @@ function connect(){
 }
 function on(m){
   switch(m.t){
-    case 'init':{me=m.me;const{t,...rest}=m;Object.assign(S,rest);S.typing={};if(!window.__started){window.__started=true;render();void 0}else render();break}
+    case 'init':{me=m.me;const{t,...rest}=m;Object.assign(S,rest);S.typing={};if(!window.__started){window.__started=true;render();maybeAnnounce()}else render();break}
     case 'users':case 'deeds':case 'events':case 'photos':case 'notes':case 'lessons':case 'wazes':{const{t,...rest}=m;Object.assign(S,rest);if(m.t==='users'){me=S.users.find(u=>u.id===me.id)||me}refresh(m.t);break}
     case 'track':S.trk=m.trk;S.trkTotal=m.trkTotal;if(view==='track')render();break;
     case 'track:all':showFamilyTrack(m);break;
+    case 'win':S.win=m.win;if(view==='learn')render();break;
     case 'locks':S.locks=m.locks;if(view==='note')paintNote();if(view==='notes')render();break;
     case 'chat':S.chat.push(m.m);if(S.chat.length>300)S.chat.shift();if(view==='chat'){addMsg(m.m);send({t:'seen'})}else if(m.m.user!==me.id){S.unread++;if(view==='hub')render()}break;
     case 'chat:del':S.chat=S.chat.filter(x=>x.id!==m.id);if(view==='chat')paintChat();break;
@@ -143,7 +144,7 @@ function login(msg){
 const TITLES={hub:'Cousin Heaven ✨',chat:'Family Chat',notes:'Our Notes',note:'Note',deeds:'Good Deeds',album:'Our Album',learn:'Learning Zone',waz:'Listen to Waz',track:'Salah & Quran',calendar:'Special Days',play:'Play Zone'};
 function go(v){if(S.room&&view==='play'&&v!=='play'&&S.room.state==='playing'){toast('Finish or leave your game first');return}view=v;if(v==='chat')S.unread=0;render();scrollTo(0,0)}
 function render(){
-  if(!me)return;
+  if(!me)return;clearInterval(stT);
   $('#hd').innerHTML=(view==='hub'?'':'<button class="ghost" id="bk" style="font-size:22px">‹</button>')+`<h1>${TITLES[view]}</h1><button class="ghost" id="pf">${av(me.id)}</button>`;
   if($('#bk'))$('#bk').onclick=()=>{if(view==='note'){send({t:'note:unlock',id:openNote});view='notes'}else if(view==='play'&&S.room){leaveRoom();return}else view='hub';render()};
   $('#pf').onclick=profile;
@@ -232,10 +233,12 @@ function vDeeds(){
 /* ---------- album ---------- */
 function vAlbum(){
   const albums=['All',...new Set(S.photos.map(p=>p.album))],list=S.photos.filter(p=>album==='All'||p.album===album);
-  $('#main').innerHTML=`<button class="pri" id="padd" style="width:100%;margin-bottom:10px">📸 Add photos</button><div class="row wrap" style="margin-bottom:10px">${albums.map(a=>`<span class="chip ${a===album?'on':''}" data-a="${esc(a)}">${esc(a)}</span>`).join('')}</div>
-  ${list.length?`<div class="grid3">${list.map(p=>`<img class="ph" loading="lazy" data-p="${p.id}" src="/photos/${p.file}?t=${token}">`).join('')}</div>`:'<div class="sub" style="text-align:center;margin-top:30px">No photos yet. Add your first memory! 💛</div>'}`;
+  $('#main').innerHTML=`<div class="row" style="margin-bottom:10px"><button class="pri" id="padd" style="flex:1">📸 Add photos</button><button id="psel">${albSel?'Cancel':'☑ Select'}</button></div>${albSel&&albSel.size?`<button class="pri" id="pdm" style="width:100%;margin-bottom:10px">🗑 Delete ${albSel.size} selected</button>`:''}<div class="row wrap" style="margin-bottom:10px">${albums.map(a=>`<span class="chip ${a===album?'on':''}" data-a="${esc(a)}">${esc(a)}</span>`).join('')}</div>
+  ${list.length?`<div class="grid3">${list.map(p=>`<div style="position:relative"><img class="ph" loading="lazy" data-p="${p.id}" src="/photos/${p.file}?t=${token}" style="${albSel&&albSel.has(p.id)?'outline:4px solid var(--pink)':''}">${albSel&&albSel.has(p.id)?'<span style="position:absolute;top:4px;right:6px;font-size:22px">✅</span>':''}</div>`).join('')}</div>`:'<div class="sub" style="text-align:center;margin-top:30px">No photos yet. Add your first memory! 💛</div>'}`;
   document.querySelectorAll('[data-a]').forEach(c=>c.onclick=()=>{album=c.dataset.a;render()});
-  document.querySelectorAll('[data-p]').forEach(i=>i.onclick=()=>openPhoto(+i.dataset.p));
+  document.querySelectorAll('[data-p]').forEach(i=>i.onclick=()=>{const id=+i.dataset.p;if(albSel){const ph=S.photos.find(x=>x.id===id);if(ph&&(ph.user===me.id||me.role==='admin')){albSel.has(id)?albSel.delete(id):albSel.add(id);vAlbum()}else toast('You can only delete your own photos')}else openPhoto(id)});
+  $('#psel').onclick=()=>{albSel=albSel?null:new Set();vAlbum()};
+  if($('#pdm'))$('#pdm').onclick=()=>sheet(`<h3>Delete ${albSel.size} photo${albSel.size>1?'s':''}?</h3><div class="sub">They will be removed for everyone.</div><div class="row" style="justify-content:flex-end;margin-top:12px"><button onclick="closeSheet()">Cancel</button><button class="pri" id="pdy">Delete</button></div>`,()=>$('#pdy').onclick=()=>{[...albSel].forEach(id=>send({t:'photo:del',id}));albSel=null;closeSheet()});
   $('#padd').onclick=()=>sheet(`<h3>Add photos</h3><label>Album name</label><input id="pa" list="pal" maxlength="30" value="${album==='All'?'Everyday':esc(album)}"><datalist id="pal">${albums.filter(a=>a!=='All').map(a=>`<option value="${esc(a)}">`).join('')}</datalist><label>Caption (optional)</label><input id="pc" maxlength="120" placeholder="Say something nice">
    <input type="file" id="pf2" accept="image/*" multiple style="margin-top:10px"><div class="sub" id="pst" style="margin:8px 0">Choose photos, they upload right away.</div><div class="row" style="justify-content:flex-end"><button onclick="closeSheet()">Close</button></div>`,()=>{$('#pf2').onchange=upl});
 }
@@ -255,10 +258,10 @@ function openPhoto(id){
   const show=()=>{const p=list[i];if(!p)return closeSheet();const liked=p.likes.includes(me.id);
     sheet(`<div class="row sp"><div class="row">${av(p.user,'sm')}<b>${esc(U(p.user).name)}</b><span class="sub">${esc(p.album)}</span></div><button class="ghost" onclick="closeSheet()">✕</button></div>
     <img src="/photos/${p.file}?t=${token}" style="width:100%;border-radius:14px;margin:8px 0;max-height:60vh;object-fit:contain;background:#000">${p.caption?`<div>${esc(p.caption)}</div>`:''}
-    <div class="row sp" style="margin-top:8px"><button id="pl" class="${liked?'pri':''}">❤ ${p.likes.length}</button><span class="row"><button id="pp" ${i<=0?'disabled':''}>‹</button><button id="pn" ${i>=list.length-1?'disabled':''}>›</button></span>${p.user===me.id||me.role==='admin'?'<button id="pd">🗑</button>':''}</div>`,()=>{
+    <div class="row sp" style="margin-top:8px"><button id="pl" class="${liked?'pri':''}">❤ ${p.likes.length}</button><span class="row"><button id="pp" ${i<=0?'disabled':''}>‹</button><button id="pn" ${i>=list.length-1?'disabled':''}>›</button></span>${p.user===me.id||me.role==='admin'?'<button id="pd">🗑 Delete</button>':''}</div>`,()=>{
       $('#pl').onclick=()=>{send({t:'photo:like',id:p.id});setTimeout(()=>{const np=S.photos.find(x=>x.id===p.id);list[i]=np||p;show()},250)};
       $('#pp').onclick=()=>{i--;show()};$('#pn').onclick=()=>{i++;show()};
-      if($('#pd'))$('#pd').onclick=()=>{send({t:'photo:del',id:p.id});closeSheet()}})};
+      if($('#pd'))$('#pd').onclick=()=>sheet(`<h3>Delete this photo?</h3><div class="sub">It will be removed for everyone.</div><div class="row" style="justify-content:flex-end;margin-top:12px"><button id="pdn">Cancel</button><button class="pri" id="pdy">Delete</button></div>`,()=>{$('#pdn').onclick=show;$('#pdy').onclick=()=>{send({t:'photo:del',id:p.id});closeSheet()}})})};
   show();
 }
 
@@ -347,64 +350,44 @@ function profile(){
 }
 
 /* ---------- learn ---------- */
-const LETTERS=[['ا','Alif'],['ب','Baa'],['ت','Taa'],['ث','Thaa'],['ج','Jeem'],['ح','Haa'],['خ','Khaa'],['د','Daal'],['ذ','Dhaal'],['ر','Raa'],['ز','Zaay'],['س','Seen'],['ش','Sheen'],['ص','Saad'],['ض','Daad'],['ط','Taa (heavy)'],['ظ','Zaa (heavy)'],['ع','‘Ayn'],['غ','Ghayn'],['ف','Faa'],['ق','Qaaf'],['ك','Kaaf'],['ل','Laam'],['م','Meem'],['ن','Noon'],['ه','Haa (soft)'],['و','Waaw'],['ي','Yaa']];
-const LEARN={
- pillars:{t:'🕌 Five Pillars of Islam',l:['1. Shahada — saying there is no god but Allah and Muhammad ﷺ is His messenger','2. Salah — praying five times every day','3. Zakat — giving a part of our wealth to people in need','4. Sawm — fasting in the month of Ramadan','5. Hajj — visiting the Kaaba in Makkah, for those who are able']},
- iman:{t:'💛 Six Pillars of Iman (faith)',l:['1. Believe in Allah','2. Believe in His angels','3. Believe in His books','4. Believe in His messengers','5. Believe in the Last Day','6. Believe that everything good and bad happens by Allah’s decree (Qadar)']},
- wudu:{t:'💧 How to make Wudu',l:['1. Make the intention in your heart and say Bismillah','2. Wash both hands up to the wrists — 3 times','3. Rinse your mouth — 3 times','4. Sniff water into your nose and blow it out — 3 times','5. Wash your whole face — 3 times','6. Wash your right arm up to the elbow, then the left — 3 times each','7. Wipe your head once with wet hands, and wipe your ears','8. Wash your right foot up to the ankle, then the left — 3 times each']},
- salah:{t:'🤲 The five prayers (fard rakats)',l:['Fajr (dawn) — 2 rakats','Dhuhr (noon) — 4 rakats','Asr (afternoon) — 4 rakats','Maghrib (sunset) — 3 rakats','Isha (night) — 4 rakats','Steps in a rakat: stand and say Allahu Akbar → recite Al-Fatiha and a surah → ruku (bow) → stand → sujud (prostrate) → sit → second sujud. At the end: Tashahhud and Salam.']},
-};
-const DUAS=[
- ['Waking up','الْحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ','Alhamdu lillahil-ladhi ahyana ba‘da ma amatana wa ilayhin-nushur','All praise is for Allah who gave us life after death, and to Him is the return.'],
- ['Before sleeping','بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا','Bismika Allahumma amutu wa ahya','In Your name, O Allah, I die and I live.'],
- ['Before eating','بِسْمِ اللَّهِ','Bismillah','In the name of Allah.'],
- ['After eating','الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنَا وَسَقَانَا وَجَعَلَنَا مُسْلِمِينَ','Alhamdu lillahil-ladhi at‘amana wa saqana wa ja‘alana muslimin','All praise is for Allah who fed us, gave us drink, and made us Muslims.'],
- ['Leaving home','بِسْمِ اللَّهِ تَوَكَّلْتُ عَلَى اللَّهِ وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ','Bismillah, tawakkaltu ‘alallah, wa la hawla wa la quwwata illa billah','In the name of Allah, I trust in Allah; there is no power or strength except with Allah.'],
- ['Entering the masjid','اللَّهُمَّ افْتَحْ لِي أَبْوَابَ رَحْمَتِكَ','Allahumma iftah li abwaba rahmatik','O Allah, open for me the doors of Your mercy.'],
- ['Leaving the masjid','اللَّهُمَّ إِنِّي أَسْأَلُكَ مِنْ فَضْلِكَ','Allahumma inni as’aluka min fadlik','O Allah, I ask You for Your bounty.'],
- ['For knowledge','رَبِّ زِدْنِي عِلْمًا','Rabbi zidni ‘ilma','My Lord, increase me in knowledge. (Quran 20:114)'],
- ['For parents','رَبِّ ارْحَمْهُمَا كَمَا رَبَّيَانِي صَغِيرًا','Rabbir-hamhuma kama rabbayani saghira','My Lord, have mercy on them as they raised me when I was small. (Quran 17:24)'],
-];
-const SURAHS=[
- ['Al-Fatiha',['بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ','الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ','الرَّحْمَٰنِ الرَّحِيمِ','مَالِكِ يَوْمِ الدِّينِ','إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ','اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ','صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ']],
- ['Al-Ikhlas',['قُلْ هُوَ اللَّهُ أَحَدٌ','اللَّهُ الصَّمَدُ','لَمْ يَلِدْ وَلَمْ يُولَدْ','وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ']],
- ['Al-Falaq',['قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ','مِن شَرِّ مَا خَلَقَ','وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ','وَمِن شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ','وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ']],
- ['An-Nas',['قُلْ أَعُوذُ بِرَبِّ النَّاسِ','مَلِكِ النَّاسِ','إِلَٰهِ النَّاسِ','مِن شَرِّ الْوَسْوَاسِ الْخَنَّاسِ','الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ','مِنَ الْجِنَّةِ وَالنَّاسِ']],
-];
-let learnTab=null,openLesson=null;
 const LK={story:['📖','Story'],writing:['✍️','Writing task'],lesson:['💡','Lesson']};
-function vLessons(){
-  const L=S.lessons;
-  if(openLesson){const l=L.find(x=>x.id===openLesson);if(l){const k=LK[l.kind]||LK.lesson;
-    $('#main').innerHTML=`<button class="sm" id="lb" style="margin-bottom:10px">‹ From parents</button><div class="card"><div class="sub">${k[0]} ${k[1]}</div><h2 style="margin:4px 0 10px">${esc(l.title)}</h2><div style="white-space:pre-wrap;font-size:18px;line-height:1.6">${esc(l.body)}</div></div>
+let openLesson=null,stT=null;
+const fmtMin=m=>m>=60?Math.floor(m/60)+'h '+(m%60)+'m':m+' min';
+const wnames=a=>a.map(x=>`${AVOK.includes(x.avatar)?x.avatar:'🌟'} <b>${esc(x.name)}</b>`).join(', ');
+function maybeAnnounce(){
+  const W=S.win;if(!W||!W.last||(!W.last.quran.length&&!W.last.study.length))return;
+  let seen='';try{seen=localStorage.getItem('ch_win_seen')||''}catch(e){}if(seen===W.wk)return;try{localStorage.setItem('ch_win_seen',W.wk)}catch(e){}
+  setTimeout(()=>sheet(`<div style="text-align:center"><div style="font-size:56px">🏆</div><h2 style="margin:4px 0">Last week's winners!</h2>
+  ${W.last.quran.length?`<div class="card" style="margin-top:10px"><div class="sub">📖 Most Quran read</div><div style="font-size:19px;margin-top:4px">${wnames(W.last.quran)}</div><div class="sub">${W.last.quran[0].v} pages</div></div>`:''}
+  ${W.last.study.length?`<div class="card"><div class="sub">⏱ Most study time</div><div style="font-size:19px;margin-top:4px">${wnames(W.last.study)}</div><div class="sub">${fmtMin(W.last.study[0].v)}</div></div>`:''}
+  <div style="font-size:26px">🎉🌟🎉</div><div class="sub">MashaAllah! A new week starts today.</div><button class="pri" style="width:100%;margin-top:10px" onclick="closeSheet()">Alhamdulillah!</button></div>`),600);
+}
+function vLearn(){
+  if(openLesson){const l=S.lessons.find(x=>x.id===openLesson);if(l){const k=LK[l.kind]||LK.lesson;
+    $('#main').innerHTML=`<button class="sm" id="lb" style="margin-bottom:10px">‹ Back</button><div class="card"><div class="sub">${k[0]} ${k[1]}</div><h2 style="margin:4px 0 10px">${esc(l.title)}</h2><div style="white-space:pre-wrap;font-size:18px;line-height:1.6">${esc(l.body)}</div></div>
     ${l.kind==='writing'?'<button class="pri" id="la" style="width:100%">✍️ Write my answer in Our Notes</button>':''}${me.role==='admin'?'<button class="sm" id="ld" style="margin-top:10px">🗑 Delete this</button>':''}`;
-    $('#lb').onclick=()=>{openLesson=null;vLessons()};
-    if($('#la'))$('#la').onclick=()=>{send({t:'note:new',title:'My answer: '+l.title.slice(0,40)})};
-    if($('#ld'))$('#ld').onclick=()=>{send({t:'lesson:del',id:l.id});openLesson=null;vLessons()};return}openLesson=null}
-  $('#main').innerHTML=`<button class="sm" id="lb" style="margin-bottom:10px">‹ Learning</button>${me.role==='admin'?'<button class="pri" id="la" style="width:100%;margin-bottom:10px">＋ Add a story, task or lesson</button>':''}
-  ${L.length?L.map(l=>{const k=LK[l.kind]||LK.lesson;return `<div class="card row" data-ls="${l.id}" style="cursor:pointer"><div style="font-size:32px">${k[0]}</div><div style="flex:1"><b>${esc(l.title)}</b><div class="sub">${k[1]}</div></div>›</div>`}).join(''):'<div class="sub" style="text-align:center;margin-top:30px">No lessons from parents yet 💌</div>'}`;
-  $('#lb').onclick=()=>{learnTab=null;vLearn()};
-  document.querySelectorAll('[data-ls]').forEach(c=>c.onclick=()=>{openLesson=+c.dataset.ls;vLessons()});
+    $('#lb').onclick=()=>{openLesson=null;vLearn()};
+    if($('#la'))$('#la').onclick=()=>send({t:'note:new',title:'My answer: '+l.title.slice(0,40)});
+    if($('#ld'))$('#ld').onclick=()=>sheet(`<h3>Delete this lesson?</h3><div class="row" style="justify-content:flex-end"><button onclick="closeSheet()">Cancel</button><button class="pri" id="ldy">Delete</button></div>`,()=>$('#ldy').onclick=()=>{send({t:'lesson:del',id:l.id});openLesson=null;closeSheet();vLearn()});return}openLesson=null}
+  const L=S.lessons,td=ymd(new Date()),wkM=lastDays(7).reduce((a,d)=>a+(trRow(d).mins||0),0),W=S.win;
+  let st=0;try{st=+localStorage.getItem('ch_study_start')||0}catch(e){}
+  const win=W&&(W.last.quran.length||W.last.study.length||W.cur.quran.length||W.cur.study.length);
+  $('#main').innerHTML=`<div class="card"><div class="row sp"><b>⏱ Study time</b><span class="sub">Today ${fmtMin(trRow(td).mins||0)} · Week ${fmtMin(wkM)}</span></div>
+  ${st?`<div style="text-align:center;font-size:42px;font-weight:800;margin:10px 0" id="stt">0:00</div><button class="pri" style="width:100%" id="sstop">⏹ Stop &amp; save</button>`:`<button class="pri" style="width:100%;margin-top:10px;font-size:18px" id="sgo">▶ Start studying</button><div class="row" style="justify-content:center;margin-top:8px"><span class="sub">or add:</span><button class="sm" data-m="10">+10 min</button><button class="sm" data-m="20">+20 min</button><button class="sm" data-m="30">+30 min</button></div>`}</div>
+  ${win?`<div class="card"><b>🏆 Weekly winners</b>${W.last.quran.length||W.last.study.length?`<div class="sub" style="margin-top:6px">Last week</div>${W.last.quran.length?`<div>📖 ${wnames(W.last.quran)} <span class="sub">${W.last.quran[0].v} pages</span></div>`:''}${W.last.study.length?`<div>⏱ ${wnames(W.last.study)} <span class="sub">${fmtMin(W.last.study[0].v)}</span></div>`:''}`:''}${W.cur.quran.length||W.cur.study.length?`<div class="sub" style="margin-top:8px">Leading this week</div>${W.cur.quran.length?`<div>📖 ${wnames(W.cur.quran)}</div>`:''}${W.cur.study.length?`<div>⏱ ${wnames(W.cur.study)}</div>`:''}`:''}<div class="sub" style="margin-top:6px">Week runs Saturday to Friday. Winners are announced every Saturday.</div></div>`:''}
+  <div class="row sp"><h2 style="margin:6px 0">From Papa 💌</h2>${me.role==='admin'?'<button class="pri sm" id="la">＋ Add</button>':''}</div>
+  ${L.length?L.map(l=>{const k=LK[l.kind]||LK.lesson;return `<div class="card row" data-ls="${l.id}" style="cursor:pointer"><div style="font-size:32px">${k[0]}</div><div style="flex:1"><b>${esc(l.title)}</b><div class="sub">${k[1]}</div></div>›</div>`}).join(''):'<div class="sub" style="text-align:center;margin:20px 0">No lessons yet. Papa will add some soon 💌</div>'}`;
+  document.querySelectorAll('[data-ls]').forEach(c=>c.onclick=()=>{openLesson=+c.dataset.ls;vLearn()});
+  document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{send({t:'study:add',mins:+b.dataset.m});toast('Study time saved ⏱')});
+  if($('#sgo'))$('#sgo').onclick=()=>{try{localStorage.setItem('ch_study_start',Date.now())}catch(e){}vLearn()};
+  if(st){const tick=()=>{const e=$('#stt');if(!e){clearInterval(stT);return}const s=Math.floor((Date.now()-st)/1000);e.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};tick();clearInterval(stT);stT=setInterval(tick,1000)}
+  if($('#sstop'))$('#sstop').onclick=()=>{const m=Math.round((Date.now()-st)/60000);try{localStorage.removeItem('ch_study_start')}catch(e){}clearInterval(stT);if(m<1){toast('Study for at least 1 minute to save it');vLearn();return}let left=m;while(left>0){const c=Math.min(180,left);send({t:'study:add',mins:c});left-=c}toast('MashaAllah! '+fmtMin(m)+' saved ⭐');vLearn()};
   if($('#la'))$('#la').onclick=()=>{let kind='story';sheet(`<h3>New for the kids</h3><label>Type</label><div class="row wrap" id="lk">${Object.entries(LK).map(([k,v])=>`<button class="sm ${k==='story'?'pri':''}" data-k="${k}">${v[0]} ${v[1]}</button>`).join('')}</div>
     <label>Title</label><input id="lt" maxlength="80" placeholder="e.g. The honest shepherd"><label>Text</label><textarea id="lbd" style="min-height:30vh" placeholder="Write the story, the writing task or the lesson here…"></textarea>
     <div class="row" style="justify-content:flex-end;margin-top:12px"><button onclick="closeSheet()">Cancel</button><button class="pri" id="lok">Share</button></div>`,m=>{
     m.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{kind=b.dataset.k;m.querySelectorAll('[data-k]').forEach(x=>x.classList.toggle('pri',x===b))});
     $('#lok').onclick=()=>{const t=$('#lt').value.trim(),b=$('#lbd').value.trim();if(!t||!b)return;send({t:'lesson:add',kind,title:t,body:b});closeSheet();toast('Shared with the cousins 💌')}})};
 }
-function vLearn(){
-  if(!learnTab){
-    $('#main').innerHTML=`<div class="tiles">${[['parents','💌','From parents','#e0679c'],['letters','🔤','Arabic letters','#4c9be8'],['duas','🤲','Daily duas','#2bb8ae'],['surahs','📖','Short surahs','#8b6cf6'],['wudu','💧','Wudu steps','#4c9be8'],['salah','🕌','Salah guide','#ef7d57'],['pillars','🧱','5 Pillars','#d9822b'],['iman','💛','6 Pillars of Iman','#f7b731'],['quiz','🎯','Practice quiz','#6b4fa0']].map(t=>`<div class="tile" style="background:${t[3]}" data-l="${t[0]}"><b>${t[1]}</b>${t[2]}</div>`).join('')}</div><div class="sub" style="margin-top:12px;text-align:center">Parents: please check recitation with a qualified teacher. 💛</div>`;
-    document.querySelectorAll('[data-l]').forEach(t=>t.onclick=()=>{if(t.dataset.l==='quiz'){go('play');return}learnTab=t.dataset.l;vLearn()});return}
-  const back=`<button class="sm" id="lb" style="margin-bottom:10px">‹ Learning</button>`;let h='';
-  if(learnTab==='parents')return vLessons();
-  if(learnTab==='letters')h=`<div class="sub" style="margin-bottom:8px">Tap a letter to see its name. Say it out loud with a parent!</div><div class="grid3">${LETTERS.map(l=>`<div class="card letter" data-lt="${l[1]}" style="margin:0;cursor:pointer">${l[0]}<div class="sub" style="font-family:system-ui;direction:ltr;min-height:20px"></div></div>`).join('')}</div>`;
-  else if(learnTab==='duas')h=DUAS.map(d=>`<div class="card"><b>${esc(d[0])}</b><div class="ar">${d[1]}</div><div><i>${esc(d[2])}</i></div><div class="sub">${esc(d[3])}</div></div>`).join('');
-  else if(learnTab==='surahs')h=SURAHS.map(s=>`<div class="card"><b>${s[0]}</b>${s[1].map((v,i)=>`<div class="ar">${v} <span class="sub">﴿${i+1}﴾</span></div>`).join('')}</div>`).join('');
-  else{const L=LEARN[learnTab];h=`<div class="card"><b>${L.t}</b>${L.l.map(x=>`<p style="margin:8px 0">${esc(x)}</p>`).join('')}</div>`}
-  $('#main').innerHTML=back+h;$('#lb').onclick=()=>{learnTab=null;vLearn()};
-  document.querySelectorAll('[data-lt]').forEach(c=>c.onclick=()=>{c.querySelector('.sub').textContent=c.dataset.lt});
-}
-
 /* ---------- play zone ---------- */
 const GINFO={quiz:['🎯','Quiz Race','Answer Islamic questions faster than your cousins!'],memory:['🧠','Memory Match','Take turns finding matching pairs.'],dots:['🔷','Dots & Boxes','Draw lines and close boxes to win them.'],scramble:['🔤','Word Scramble','Unscramble Islamic words. Fastest wins!']};
 function vPlay(){

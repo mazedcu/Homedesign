@@ -112,8 +112,17 @@ const lockOf = id => { const l = locks.get(id); return l && Date.now() - l.ts < 
 // ---------- salah & quran tracker (private per member) ----------
 const dayStr = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const dayAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return dayStr(d); };
-const trackMsg = uid => ({ t: 'track', trk: q('SELECT day, salah, pages FROM track WHERE user=? AND day>=? ORDER BY day DESC', uid, dayAgo(60)), trkTotal: (q1('SELECT COALESCE(SUM(pages),0) p FROM track WHERE user=?', uid) || {}).p || 0 });
+const trackMsg = uid => ({ t: 'track', trk: q('SELECT day, salah, pages, mins FROM track WHERE user=? AND day>=? ORDER BY day DESC', uid, dayAgo(60)), trkTotal: (q1('SELECT COALESCE(SUM(pages),0) p FROM track WHERE user=?', uid) || {}).p || 0 });
+try { db.exec('ALTER TABLE track ADD COLUMN mins INTEGER DEFAULT 0'); } catch (e) { }
 const bits = n => { let c = 0; for (let i = 0; i < 5; i++) if (n & (1 << i)) c++; return c; };
+
+// weekly winners (week runs Saturday to Friday; parents are not in the contest)
+const addDays = (str, n) => { const d = new Date(str + 'T00:00:00'); d.setDate(d.getDate() + n); return dayStr(d); };
+function winners() {
+  const sinceSat = (new Date().getDay() + 1) % 7, curStart = dayAgo(sinceSat), lastStart = addDays(curStart, -7), lastEnd = addDays(curStart, -1);
+  const top = (col, from, to) => { const rows = q(`SELECT u.id, u.name, u.avatar, u.color, SUM(t.${col}) v FROM track t JOIN users u ON u.id=t.user WHERE t.day>=? AND t.day<=? AND u.role!='admin' GROUP BY u.id HAVING v>0 ORDER BY v DESC`, from, to); return rows.filter(r => r.v === (rows[0] || {}).v); };
+  return { wk: lastStart, last: { quran: top('pages', lastStart, lastEnd), study: top('mins', lastStart, lastEnd) }, cur: { quran: top('pages', curStart, today()), study: top('mins', curStart, today()) } };
+}
 
 // ---------- websocket handling ----------
 function handle(c, m) {
@@ -147,6 +156,14 @@ function handle(c, m) {
       const salah = (+m.salah || 0) & 31, pages = Math.max(0, Math.min(300, Math.round(+m.pages || 0)));
       run('INSERT INTO track(user,day,salah,pages) VALUES(?,?,?,?) ON CONFLICT(user,day) DO UPDATE SET salah=excluded.salah, pages=excluded.pages', me.id, day, salah, pages);
       for (const o of clients) if (o.user.id === me.id) send(o.ws, trackMsg(me.id));
+      all({ t: 'win', win: winners() });
+      return;
+    }
+    case 'study:add': {
+      const mins = Math.max(1, Math.min(180, Math.round(+m.mins || 0)));
+      run('INSERT INTO track(user,day,salah,pages,mins) VALUES(?,?,0,0,?) ON CONFLICT(user,day) DO UPDATE SET mins=MIN(600, COALESCE(mins,0)+excluded.mins)', me.id, today(), mins);
+      for (const o of clients) if (o.user.id === me.id) send(o.ws, trackMsg(me.id));
+      all({ t: 'win', win: winners() });
       return;
     }
     case 'track:all': {
@@ -266,7 +283,7 @@ wss.on('connection', (ws, req) => {
   const c = { ws, user: u }; clients.add(c);
   const init = { t: 'init', me: u, code: u.role === 'admin' ? getSet('code') : undefined, chat: chatRows(), rooms: rooms.list(), room: (() => { const r = rooms.roomOf(u.id); return r ? rooms.view(r, u.id) : null; })(), locks: Object.fromEntries([...locks].filter(([k]) => lockOf(k)).map(([k, v]) => [k, v.u])), day: today(), games: GAMES };
   for (const k of ['users', 'deeds', 'events', 'photos', 'notes', 'lessons', 'wazes']) { const s = slices[k](); delete s.t; Object.assign(init, s); }
-  { const tm = trackMsg(u.id); delete tm.t; Object.assign(init, tm); }
+  { const tm = trackMsg(u.id); delete tm.t; Object.assign(init, tm); init.win = winners(); }
   send(ws, init);
   all(slices.users());
   ws.on('message', d => { let m; try { m = JSON.parse(d); } catch { return; } try { handle(c, m); } catch (e) { console.error('msg error', e); } });
