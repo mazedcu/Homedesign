@@ -65,7 +65,7 @@ canvas{width:100%;border-radius:16px;background:#fff7e6;touch-action:none;displa
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let token=null;try{token=localStorage.getItem('cousin_token')}catch(e){}
-let S={lessons:[],users:[],online:[],chat:[],notes:[],locks:{},deeds:[],tdone:[],once:[],board:[],week:[],events:[],photos:[],rooms:[],room:null,games:{},typing:{},unread:0};
+let S={wazes:[],lessons:[],users:[],online:[],chat:[],notes:[],locks:{},deeds:[],tdone:[],once:[],board:[],week:[],events:[],photos:[],rooms:[],room:null,games:{},typing:{},unread:0};
 let me=null,ws=null,view='hub',wsOk=false,retry=0,openNote=null,album='All',viewer=null,lbTab='week';
 const U=id=>S.users.find(u=>u.id===id)||{id,name:'Someone',avatar:'🌟',color:'#ccc'};
 const AVOK=['🌸','🌟','🌙','🕌','🌺','🍀','🌈','🚀','⚽','🎈','🍎','🌻'];const fav=u=>AVOK.includes(u.avatar)?u.avatar:'🌟';
@@ -88,7 +88,7 @@ function connect(){
 function on(m){
   switch(m.t){
     case 'init':{me=m.me;const{t,...rest}=m;Object.assign(S,rest);S.typing={};if(!window.__started){window.__started=true;render();void 0}else render();break}
-    case 'users':case 'deeds':case 'events':case 'photos':case 'notes':case 'lessons':{const{t,...rest}=m;Object.assign(S,rest);if(m.t==='users'){me=S.users.find(u=>u.id===me.id)||me}refresh(m.t);break}
+    case 'users':case 'deeds':case 'events':case 'photos':case 'notes':case 'lessons':case 'wazes':{const{t,...rest}=m;Object.assign(S,rest);if(m.t==='users'){me=S.users.find(u=>u.id===me.id)||me}refresh(m.t);break}
     case 'locks':S.locks=m.locks;if(view==='note')paintNote();if(view==='notes')render();break;
     case 'chat':S.chat.push(m.m);if(S.chat.length>300)S.chat.shift();if(view==='chat'){addMsg(m.m);send({t:'seen'})}else if(m.m.user!==me.id){S.unread++;if(view==='hub')render()}break;
     case 'chat:del':S.chat=S.chat.filter(x=>x.id!==m.id);if(view==='chat')paintChat();break;
@@ -108,7 +108,7 @@ function on(m){
 function refresh(k){
   if(k==='users'&&(view==='hub'||view==='play'&&!S.room))render();
   else if(k==='deeds'&&view==='deeds')render();else if(k==='events'&&(view==='calendar'||view==='hub'))render();
-  else if(k==='photos'&&view==='album')render();else if(k==='lessons'&&view==='learn')vLearn();else if(k==='notes'&&(view==='notes'||view==='note'))view==='note'?paintNote():render();
+  else if(k==='photos'&&view==='album')render();else if(k==='lessons'&&view==='learn')vLearn();else if(k==='wazes'&&view==='waz'&&!document.querySelector('audio:not([paused])'))render();else if(k==='notes'&&(view==='notes'||view==='note'))view==='note'?paintNote():render();
   if(k==='users'&&view==='chat')paintChat();
 }
 function shakeEl(s){const e=$(s);if(e){e.classList.remove('shake');void e.offsetWidth;e.classList.add('shake')}}
@@ -138,14 +138,14 @@ function login(msg){
 }
 
 /* ---------- shell ---------- */
-const TITLES={hub:'Cousin Heaven ✨',chat:'Family Chat',notes:'Our Notes',note:'Note',deeds:'Good Deeds',album:'Our Album',learn:'Learning Zone',calendar:'Special Days',play:'Play Zone'};
+const TITLES={hub:'Cousin Heaven ✨',chat:'Family Chat',notes:'Our Notes',note:'Note',deeds:'Good Deeds',album:'Our Album',learn:'Learning Zone',waz:'Listen to Waz',calendar:'Special Days',play:'Play Zone'};
 function go(v){if(S.room&&view==='play'&&v!=='play'&&S.room.state==='playing'){toast('Finish or leave your game first');return}view=v;if(v==='chat')S.unread=0;render();scrollTo(0,0)}
 function render(){
   if(!me)return;
   $('#hd').innerHTML=(view==='hub'?'':'<button class="ghost" id="bk" style="font-size:22px">‹</button>')+`<h1>${TITLES[view]}</h1><button class="ghost" id="pf">${av(me.id)}</button>`;
   if($('#bk'))$('#bk').onclick=()=>{if(view==='note'){send({t:'note:unlock',id:openNote});view='notes'}else if(view==='play'&&S.room){leaveRoom();return}else view='hub';render()};
   $('#pf').onclick=profile;
-  ({hub:vHub,chat:vChat,notes:vNotes,note:vNote,deeds:vDeeds,album:vAlbum,learn:vLearn,calendar:vCal,play:vPlay}[view]||vHub)();
+  ({hub:vHub,chat:vChat,notes:vNotes,note:vNote,deeds:vDeeds,album:vAlbum,learn:vLearn,waz:vWaz,calendar:vCal,play:vPlay}[view]||vHub)();
 }
 function sheet(html,mount){closeSheet();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div class="sheet">'+html+'</div>';m.onclick=e=>{if(e.target===m)closeSheet()};document.body.appendChild(m);mount&&mount(m)}
 function closeSheet(){const m=$('#modal');if(m)m.remove()}
@@ -155,7 +155,7 @@ const nextOcc=e=>{const t=new Date();t.setHours(0,0,0,0);let d=new Date(e.date+'
 /* ---------- hub ---------- */
 function vHub(){
   const ev=S.events.map(e=>({...e,n:nextOcc(e)})).filter(e=>e.n>=0).sort((a,b)=>a.n-b.n)[0];
-  const T=[['play','🎮','Play Zone','#8b6cf6'],['chat','💬','Chat','#ff7aa2'],['notes','📝','Our Notes','#2bb8ae'],['deeds','⭐','Good Deeds','#f7b731'],['album','📸','Album','#ef7d57'],['learn','📚','Learning','#4c9be8'],['calendar','🎂','Special Days','#e0679c']];
+  const T=[['play','🎮','Play Zone','#8b6cf6'],['chat','💬','Chat','#ff7aa2'],['notes','📝','Our Notes','#2bb8ae'],['deeds','⭐','Good Deeds','#f7b731'],['album','📸','Album','#ef7d57'],['learn','📚','Learning','#4c9be8'],['waz','🎧','Listen to Waz','#3a8f6b'],['calendar','🎂','Special Days','#e0679c']];
   const total=S.board.reduce((a,b)=>a+b.pts,0);
   $('#main').innerHTML=`<div class="card row"><div style="font-size:30px">👋</div><div style="flex:1"><b>Assalamu alaikum, ${esc(me.name)}!</b><div class="sub">${S.online.length} cousin${S.online.length==1?'':'s'} online · family stars: ${total} ⭐</div></div></div>
   <div class="row wrap" style="margin-bottom:10px">${S.users.map(u=>av(u.id)).join('')}</div>
@@ -238,7 +238,7 @@ function vAlbum(){
    <input type="file" id="pf2" accept="image/*" multiple style="margin-top:10px"><div class="sub" id="pst" style="margin:8px 0">Choose photos, they upload right away.</div><div class="row" style="justify-content:flex-end"><button onclick="closeSheet()">Close</button></div>`,()=>{$('#pf2').onchange=upl});
 }
 async function upl(e){
-  const files=[...e.target.files];e.target.value='';let n=0,bad='';
+  const files=[...e.target.files];e.target.value='';let n=0,bad='';if(!files.length)return;toast('Selected '+files.length+' photo'+(files.length>1?'s':'')+'…',1500);
   for(const f of files){try{
     let b;try{b=await shrink(f)}catch(x){b=f}
     const al=encodeURIComponent(($('#pa')||{}).value||'Everyday'),cp=encodeURIComponent(($('#pc')||{}).value||'');
@@ -269,6 +269,24 @@ function vCal(){
    <label><input type="checkbox" id="ey" checked style="width:auto"> Repeat every year</label><div class="row" style="justify-content:flex-end;margin-top:12px"><button onclick="closeSheet()">Cancel</button><button class="pri" id="eok">Add</button></div>`,()=>$('#eok').onclick=()=>{const t=$('#et').value.trim(),d=$('#ed').value;if(!t||!d)return;send({t:'event:add',title:t,date:d,type:$('#ety').value,yearly:$('#ey').checked});closeSheet()});
 }
 
+/* ---------- waz (audio) ---------- */
+const AEXT={'audio/mpeg':'mp3','audio/mp3':'mp3','audio/mp4':'m4a','audio/x-m4a':'m4a','audio/m4a':'m4a','audio/aac':'aac','audio/ogg':'ogg','audio/wav':'wav','audio/x-wav':'wav','audio/webm':'webm'};
+function vWaz(){
+  const L=S.wazes,mb=n=>(n/1048576).toFixed(1)+' MB';
+  $('#main').innerHTML=(me.role==='admin'?'<button class="pri" id="wadd" style="width:100%;margin-bottom:10px">＋ Upload a waz (audio file)</button>':'')+
+  (L.length?L.map(w=>`<div class="card"><div class="row sp"><b>🎧 ${esc(w.title)}</b>${me.role==='admin'?`<a class="sub" data-wd="${w.id}" style="cursor:pointer">remove</a>`:''}</div><div class="sub">${new Date(w.created).toLocaleDateString()} · ${mb(w.size)}</div><audio controls preload="none" style="width:100%;margin-top:8px" src="/audio/${w.file}?t=${token}"></audio></div>`).join(''):'<div class="sub" style="text-align:center;margin-top:30px">No waz yet. A parent can upload one 🎧</div>');
+  document.querySelectorAll('[data-wd]').forEach(a=>a.onclick=()=>{if(confirm('Remove this waz?'))send({t:'waz:del',id:+a.dataset.wd})});
+  if($('#wadd'))$('#wadd').onclick=()=>sheet(`<h3>Upload a waz</h3><label>Title</label><input id="wt" maxlength="80" placeholder="e.g. Kindness to parents"><label>Audio file (mp3, m4a, wav, ogg)</label><input type="file" id="wf" accept="audio/*,.mp3,.m4a,.aac,.ogg,.wav,.opus"><div class="bar" style="margin-top:12px"><i id="wbar" style="width:0"></i></div><div class="sub" id="wst" style="margin:6px 0">Large files may take a few minutes. Keep the app open.</div><div class="row" style="justify-content:flex-end"><button onclick="closeSheet()">Close</button><button class="pri" id="wgo">Upload</button></div>`,()=>{
+    $('#wgo').onclick=()=>{const f=$('#wf').files[0];if(!f){$('#wst').textContent='Please choose an audio file first.';return}
+      let ext=(f.name.split('.').pop()||'').toLowerCase();if(!/^(mp3|m4a|aac|ogg|wav|opus|webm)$/.test(ext))ext=AEXT[f.type]||'';
+      if(!ext){$('#wst').textContent='This file type is not supported. Use mp3, m4a, wav or ogg.';return}
+      if(f.size>150e6){$('#wst').textContent='File is too big (max 150 MB).';return}
+      const t=$('#wt').value.trim()||f.name.replace(/\.[^.]+$/,'');$('#wgo').disabled=true;
+      const x=new XMLHttpRequest();x.open('POST','/api/waz?ext='+ext+'&title='+encodeURIComponent(t));x.setRequestHeader('x-token',token);
+      x.upload.onprogress=e=>{if(e.lengthComputable){$('#wbar').style.width=(e.loaded/e.total*100)+'%';$('#wst').textContent='Uploading… '+Math.round(e.loaded/e.total*100)+'%'}};
+      x.onload=()=>{if(x.status===200){closeSheet();toast('Waz uploaded 🎧')}else{$('#wgo').disabled=false;$('#wst').textContent='Upload failed (error '+x.status+').'}};
+      x.onerror=()=>{$('#wgo').disabled=false;$('#wst').textContent='Upload failed. Check your internet and try again.'};x.send(f)}});
+}
 /* ---------- profile ---------- */
 const AVS=['🌸','🌟','🌙','🕌','🌺','🍀','🌈','🚀','⚽','🎈','🍎','🌻'],COLS=['#ff7aa2','#ffb347','#4ecdc4','#6c8cff','#a78bfa','#7bd88f','#ff6b6b','#f7c948'];
 function profile(){

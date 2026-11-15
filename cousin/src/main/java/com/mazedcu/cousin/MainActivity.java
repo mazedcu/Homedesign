@@ -66,7 +66,15 @@ public class MainActivity extends Activity {
             @Override public boolean onShowFileChooser(WebView w, ValueCallback<Uri[]> cb, FileChooserParams p) {
                 if (chooser != null) chooser.onReceiveValue(null);
                 chooser = cb;
-                try { startActivityForResult(p.createIntent(), 7); }
+                String type = "*/*";
+                String[] at = p.getAcceptTypes();
+                if (at != null && at.length > 0 && at[0] != null && !at[0].isEmpty()) type = at[0].contains("/") ? at[0] : "*/*";
+                if (at != null && at.length > 0 && at[0] != null && at[0].startsWith("audio")) type = "audio/*";
+                Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                i.setType(type);
+                i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, p.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
+                try { startActivityForResult(Intent.createChooser(i, "Choose"), 7); }
                 catch (Exception e) { chooser = null; return false; }
                 return true;
             }
@@ -77,7 +85,17 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int req, int res, Intent d) {
         if (req == 7 && chooser != null) {
-            chooser.onReceiveValue(android.webkit.WebChromeClient.FileChooserParams.parseResult(res, d));
+            Uri[] out = null;
+            if (res == RESULT_OK && d != null) {
+                if (d.getClipData() != null) {
+                    int n = d.getClipData().getItemCount();
+                    out = new Uri[n];
+                    for (int k = 0; k < n; k++) out[k] = d.getClipData().getItemAt(k).getUri();
+                } else if (d.getData() != null) {
+                    out = new Uri[]{d.getData()};
+                }
+            }
+            chooser.onReceiveValue(out);
             chooser = null;
         }
     }

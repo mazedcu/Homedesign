@@ -12,6 +12,10 @@ const PORT = +process.env.PORT || 3000;
 const DATA = process.env.DATA_DIR || path.join(__dir, 'data');
 const PHOTOS = path.join(DATA, 'photos');
 fs.mkdirSync(PHOTOS, { recursive: true });
+const AUDIO = path.join(DATA, 'audio');
+fs.mkdirSync(AUDIO, { recursive: true });
+const AUDIO_TYPES = { mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', opus: 'audio/ogg', wav: 'audio/wav', webm: 'audio/webm' };
+const MAX_AUDIO = 150e6;
 const db = new DatabaseSync(path.join(DATA, 'cousin.db'));
 db.exec(`
 PRAGMA journal_mode=WAL;
@@ -25,6 +29,7 @@ CREATE TABLE IF NOT EXISTS photos(id INTEGER PRIMARY KEY, user INTEGER, album TE
 CREATE TABLE IF NOT EXISTS likes(photo INTEGER, user INTEGER, PRIMARY KEY(photo,user));
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY, title TEXT, date TEXT, type TEXT, yearly INTEGER, by INTEGER);
 CREATE TABLE IF NOT EXISTS lessons(id INTEGER PRIMARY KEY, title TEXT, kind TEXT, body TEXT, created INTEGER);
+CREATE TABLE IF NOT EXISTS wazes(id INTEGER PRIMARY KEY, title TEXT, file TEXT, size INTEGER, created INTEGER);
 CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY, v TEXT);
 `);
 const q = (sql, ...a) => db.prepare(sql).all(...a);
@@ -79,6 +84,7 @@ const slices = {
       board: q('SELECT x.user u, SUM(t.points) pts, COUNT(*) n FROM done x JOIN deeds t ON t.id=x.deed GROUP BY x.user'), week: q("SELECT x.user u, SUM(t.points) pts FROM done x JOIN deeds t ON t.id=x.deed WHERE x.day>=date('now','-6 day') GROUP BY x.user") };
   },
   lessons: () => ({ t: 'lessons', lessons: q('SELECT * FROM lessons ORDER BY id DESC LIMIT 200') }),
+  wazes: () => ({ t: 'wazes', wazes: q('SELECT * FROM wazes ORDER BY id DESC LIMIT 300') }),
   events: () => ({ t: 'events', events: q('SELECT * FROM events ORDER BY date') }),
   photos: () => ({ t: 'photos', photos: q('SELECT * FROM photos ORDER BY id DESC LIMIT 400').map(p => ({ ...p, likes: q('SELECT user FROM likes WHERE photo=?', p.id).map(l => l.user) })) }),
   notes: () => ({ t: 'notes', notes: q('SELECT * FROM notes ORDER BY updated DESC') }),
@@ -122,6 +128,7 @@ function handle(c, m) {
     case 'deed:undo': { const d = q1('SELECT * FROM deeds WHERE id=?', +m.id); if (!d) return; if (d.repeat === 'once') run('DELETE FROM done WHERE deed=? AND user=?', d.id, me.id); else run('DELETE FROM done WHERE deed=? AND user=? AND day=?', d.id, me.id, today()); return bcast('deeds'); }
     case 'lesson:add': { if (!admin) return; const t = clean(m.title, 80), b = String(m.body ?? '').slice(0, 6000).trim(); if (!t || !b) return; run('INSERT INTO lessons(title,kind,body,created) VALUES(?,?,?,?)', t, ['story', 'writing', 'lesson'].includes(m.kind) ? m.kind : 'lesson', b, Date.now()); return bcast('lessons'); }
     case 'lesson:del': if (admin) { run('DELETE FROM lessons WHERE id=?', +m.id); bcast('lessons'); } return;
+    case 'waz:del': { if (!admin) return; const w = q1('SELECT * FROM wazes WHERE id=?', +m.id); if (w) { run('DELETE FROM wazes WHERE id=?', w.id); fs.rm(path.join(AUDIO, path.basename(w.file)), () => {}); bcast('wazes'); } return; }
     case 'event:add': { const t = clean(m.title, 60), dt = clean(m.date, 10); if (!t || !/^\d{4}-\d{2}-\d{2}$/.test(dt)) return; run('INSERT INTO events(title,date,type,yearly,by) VALUES(?,?,?,?,?)', t, dt, ['birthday', 'eid', 'gathering', 'other'].includes(m.type) ? m.type : 'other', m.yearly ? 1 : 0, me.id); return bcast('events'); }
     case 'event:del': { const e = q1('SELECT * FROM events WHERE id=?', +m.id); if (e && (admin || e.by === me.id)) { run('DELETE FROM events WHERE id=?', e.id); bcast('events'); } return; }
     case 'photo:like': { const id = +m.id; if (q1('SELECT 1 x FROM likes WHERE photo=? AND user=?', id, me.id)) run('DELETE FROM likes WHERE photo=? AND user=?', id, me.id); else run('INSERT INTO likes VALUES(?,?)', id, me.id); return bcast('photos'); }
@@ -173,6 +180,31 @@ const server = http.createServer(async (req, res) => {
       run('INSERT INTO photos(user,album,caption,file,created) VALUES(?,?,?,?,?)', u.id, clean(url.searchParams.get('album'), 30) || 'Everyday', clean(url.searchParams.get('caption'), 120), file, Date.now());
       bcast('photos'); return json(res, 200, { ok: true });
     }
+    if (req.method === 'POST' && url.pathname === '/api/waz') {
+      const u = userForToken(req.headers['x-token']); if (!u) return json(res, 401, { error: 'auth' });
+      if (u.role !== 'admin') return json(res, 403, { error: 'admin' });
+      const ext = String(url.searchParams.get('ext') || '').toLowerCase();
+      if (!AUDIO_TYPES[ext]) return json(res, 400, { error: 'type' });
+      const file = crypto.randomBytes(12).toString('hex') + '.' + ext, fp = path.join(AUDIO, file), out = fs.createWriteStream(fp);
+      let n = 0, bad = false;
+      try { for await (const ch of req) { n += ch.length; if (n > MAX_AUDIO) { bad = true; break; } if (!out.write(ch)) await new Promise(r => out.once('drain', r)); } } catch (e) { bad = true; }
+      await new Promise(r => out.end(r));
+      if (bad || n === 0) { fs.rm(fp, () => {}); return json(res, bad ? 413 : 400, { error: 'upload' }); }
+      run('INSERT INTO wazes(title,file,size,created) VALUES(?,?,?,?)', clean(url.searchParams.get('title'), 80) || 'Waz', file, n, Date.now());
+      bcast('wazes'); return json(res, 200, { ok: true });
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/audio/')) {
+      if (!userForToken(url.searchParams.get('t'))) { res.writeHead(401); return res.end(); }
+      const f = path.join(AUDIO, path.basename(url.pathname)); let st; try { st = fs.statSync(f); } catch (e) { res.writeHead(404); return res.end(); }
+      const size = st.size, type = AUDIO_TYPES[f.split('.').pop()] || 'audio/mpeg', rg = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '');
+      if (rg) {
+        let a = rg[1] ? +rg[1] : 0, b = rg[2] ? +rg[2] : size - 1; if (!rg[1] && rg[2]) { a = Math.max(0, size - +rg[2]); b = size - 1; } if (b >= size) b = size - 1;
+        if (a > b) { res.writeHead(416, { 'content-range': 'bytes */' + size }); return res.end(); }
+        res.writeHead(206, { 'content-type': type, 'accept-ranges': 'bytes', 'content-range': `bytes ${a}-${b}/${size}`, 'content-length': b - a + 1 });
+        return fs.createReadStream(f, { start: a, end: b }).pipe(res);
+      }
+      res.writeHead(200, { 'content-type': type, 'accept-ranges': 'bytes', 'content-length': size }); return fs.createReadStream(f).pipe(res);
+    }
     if (req.method === 'GET' && url.pathname.startsWith('/photos/')) {
       if (!userForToken(url.searchParams.get('t'))) { res.writeHead(401); return res.end(); }
       const f = path.join(PHOTOS, path.basename(url.pathname)); if (!fs.existsSync(f)) { res.writeHead(404); return res.end(); }
@@ -187,7 +219,7 @@ wss.on('connection', (ws, req) => {
   if (!u) { send(ws, { t: 'kicked' }); return ws.close(); }
   const c = { ws, user: u }; clients.add(c);
   const init = { t: 'init', me: u, code: u.role === 'admin' ? getSet('code') : undefined, chat: chatRows(), rooms: rooms.list(), room: (() => { const r = rooms.roomOf(u.id); return r ? rooms.view(r, u.id) : null; })(), locks: Object.fromEntries([...locks].filter(([k]) => lockOf(k)).map(([k, v]) => [k, v.u])), day: today(), games: GAMES };
-  for (const k of ['users', 'deeds', 'events', 'photos', 'notes', 'lessons']) { const s = slices[k](); delete s.t; Object.assign(init, s); }
+  for (const k of ['users', 'deeds', 'events', 'photos', 'notes', 'lessons', 'wazes']) { const s = slices[k](); delete s.t; Object.assign(init, s); }
   send(ws, init);
   all(slices.users());
   ws.on('message', d => { let m; try { m = JSON.parse(d); } catch { return; } try { handle(c, m); } catch (e) { console.error('msg error', e); } });
@@ -196,4 +228,5 @@ wss.on('connection', (ws, req) => {
 });
 setInterval(() => wss.clients.forEach(ws => { if (ws.isAlive === false) return ws.terminate(); ws.isAlive = false; ws.ping(); }), 25000);
 wss.on('connection', ws => { ws.isAlive = true; ws.on('pong', () => ws.isAlive = true); });
+server.requestTimeout = 0; server.headersTimeout = 60000;
 server.listen(PORT, () => console.log('Cousin Heaven server on :' + PORT));
