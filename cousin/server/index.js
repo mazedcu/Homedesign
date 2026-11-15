@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS done(deed INTEGER, user INTEGER, day TEXT, PRIMARY KE
 CREATE TABLE IF NOT EXISTS photos(id INTEGER PRIMARY KEY, user INTEGER, album TEXT, caption TEXT, file TEXT, created INTEGER);
 CREATE TABLE IF NOT EXISTS likes(photo INTEGER, user INTEGER, PRIMARY KEY(photo,user));
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY, title TEXT, date TEXT, type TEXT, yearly INTEGER, by INTEGER);
+CREATE TABLE IF NOT EXISTS lessons(id INTEGER PRIMARY KEY, title TEXT, kind TEXT, body TEXT, created INTEGER);
 CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY, v TEXT);
 `);
 const q = (sql, ...a) => db.prepare(sql).all(...a);
@@ -35,7 +36,7 @@ const getSet = k => (q1('SELECT v FROM settings WHERE k=?', k) || {}).v;
 const setSet = (k, v) => run('INSERT INTO settings(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v', k, v);
 if (!getSet('code')) setSet('code', (process.env.FAMILY_CODE || 'cousins').trim());
 const hashPin = (pin, salt) => crypto.scryptSync(String(pin), salt, 32).toString('hex');
-const AVATARS = ['\u{1F467}', '\u{1F9D5}', '\u{1F466}', '\u{1F9D1}', '\u{1F431}', '\u{1F98B}', '\u{1F338}', '\u{1F31F}', '\u{1F984}', '\u{1F43C}', '\u{1F981}', '\u{1F430}'];
+const AVATARS = ['\u{1F338}', '\u{1F31F}', '\u{1F319}', '\u{1F54C}', '\u{1F33A}', '\u{1F340}', '\u{1F308}', '\u{1F680}', '\u26BD', '\u{1F388}', '\u{1F34E}', '\u{1F33B}'];
 const COLORS = ['#ff7aa2', '#ffb347', '#4ecdc4', '#6c8cff', '#a78bfa', '#7bd88f', '#ff6b6b', '#f7c948'];
 function addUser(name, pin, role) {
   const salt = crypto.randomBytes(8).toString('hex'), n = q1('SELECT COUNT(*) c FROM users').c;
@@ -77,6 +78,7 @@ const slices = {
     return { t: 'deeds', deeds: q('SELECT * FROM deeds ORDER BY id'), tdone: q('SELECT deed d, user u FROM done WHERE day=?', d), once: q("SELECT x.deed d, x.user u FROM done x JOIN deeds t ON t.id=x.deed WHERE t.repeat='once'"),
       board: q('SELECT x.user u, SUM(t.points) pts, COUNT(*) n FROM done x JOIN deeds t ON t.id=x.deed GROUP BY x.user'), week: q("SELECT x.user u, SUM(t.points) pts FROM done x JOIN deeds t ON t.id=x.deed WHERE x.day>=date('now','-6 day') GROUP BY x.user") };
   },
+  lessons: () => ({ t: 'lessons', lessons: q('SELECT * FROM lessons ORDER BY id DESC LIMIT 200') }),
   events: () => ({ t: 'events', events: q('SELECT * FROM events ORDER BY date') }),
   photos: () => ({ t: 'photos', photos: q('SELECT * FROM photos ORDER BY id DESC LIMIT 400').map(p => ({ ...p, likes: q('SELECT user FROM likes WHERE photo=?', p.id).map(l => l.user) })) }),
   notes: () => ({ t: 'notes', notes: q('SELECT * FROM notes ORDER BY updated DESC') }),
@@ -118,6 +120,8 @@ function handle(c, m) {
     case 'deed:del': { const d = q1('SELECT * FROM deeds WHERE id=?', +m.id); if (d && (admin || d.by === me.id)) { run('DELETE FROM deeds WHERE id=?', d.id); run('DELETE FROM done WHERE deed=?', d.id); bcast('deeds'); } return; }
     case 'deed:done': { const d = q1('SELECT * FROM deeds WHERE id=?', +m.id); if (!d) return; if (d.repeat === 'once' && q1('SELECT 1 x FROM done WHERE deed=? AND user=?', d.id, me.id)) return; run('INSERT OR IGNORE INTO done VALUES(?,?,?)', d.id, me.id, today()); bcast('deeds'); return all({ t: 'cheer', u: me.id, deed: d.title, emoji: d.emoji, points: d.points }); }
     case 'deed:undo': { const d = q1('SELECT * FROM deeds WHERE id=?', +m.id); if (!d) return; if (d.repeat === 'once') run('DELETE FROM done WHERE deed=? AND user=?', d.id, me.id); else run('DELETE FROM done WHERE deed=? AND user=? AND day=?', d.id, me.id, today()); return bcast('deeds'); }
+    case 'lesson:add': { if (!admin) return; const t = clean(m.title, 80), b = String(m.body ?? '').slice(0, 6000).trim(); if (!t || !b) return; run('INSERT INTO lessons(title,kind,body,created) VALUES(?,?,?,?)', t, ['story', 'writing', 'lesson'].includes(m.kind) ? m.kind : 'lesson', b, Date.now()); return bcast('lessons'); }
+    case 'lesson:del': if (admin) { run('DELETE FROM lessons WHERE id=?', +m.id); bcast('lessons'); } return;
     case 'event:add': { const t = clean(m.title, 60), dt = clean(m.date, 10); if (!t || !/^\d{4}-\d{2}-\d{2}$/.test(dt)) return; run('INSERT INTO events(title,date,type,yearly,by) VALUES(?,?,?,?,?)', t, dt, ['birthday', 'eid', 'gathering', 'other'].includes(m.type) ? m.type : 'other', m.yearly ? 1 : 0, me.id); return bcast('events'); }
     case 'event:del': { const e = q1('SELECT * FROM events WHERE id=?', +m.id); if (e && (admin || e.by === me.id)) { run('DELETE FROM events WHERE id=?', e.id); bcast('events'); } return; }
     case 'photo:like': { const id = +m.id; if (q1('SELECT 1 x FROM likes WHERE photo=? AND user=?', id, me.id)) run('DELETE FROM likes WHERE photo=? AND user=?', id, me.id); else run('INSERT INTO likes VALUES(?,?)', id, me.id); return bcast('photos'); }
@@ -183,7 +187,7 @@ wss.on('connection', (ws, req) => {
   if (!u) { send(ws, { t: 'kicked' }); return ws.close(); }
   const c = { ws, user: u }; clients.add(c);
   const init = { t: 'init', me: u, code: u.role === 'admin' ? getSet('code') : undefined, chat: chatRows(), rooms: rooms.list(), room: (() => { const r = rooms.roomOf(u.id); return r ? rooms.view(r, u.id) : null; })(), locks: Object.fromEntries([...locks].filter(([k]) => lockOf(k)).map(([k, v]) => [k, v.u])), day: today(), games: GAMES };
-  for (const k of ['users', 'deeds', 'events', 'photos', 'notes']) { const s = slices[k](); delete s.t; Object.assign(init, s); }
+  for (const k of ['users', 'deeds', 'events', 'photos', 'notes', 'lessons']) { const s = slices[k](); delete s.t; Object.assign(init, s); }
   send(ws, init);
   all(slices.users());
   ws.on('message', d => { let m; try { m = JSON.parse(d); } catch { return; } try { handle(c, m); } catch (e) { console.error('msg error', e); } });

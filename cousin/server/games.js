@@ -38,7 +38,7 @@ export const WORDS = [
   ['SABR', 'Patience'], ['SHUKR', 'Gratitude'], ['HALAL', 'Allowed in Islam'], ['ISLAM', 'Our religion of peace'],
   ['FAJR', 'Dawn prayer'], ['MAGHRIB', 'Sunset prayer'], ['SALAM', 'Peace'], ['JANNAH', 'Paradise'],
 ];
-const EMO = ['\u{1F54C}', '\u{1F319}', '⭐', '\u{1F4D6}', '\u{1F42A}', '\u{1F334}', '\u{1F54B}', '\u{1F932}'];
+const EMO = ['\u{1F54C}', '\u{1F319}', '⭐', '\u{1F4D6}', '\u2600\uFE0F', '\u{1F334}', '\u{1F54B}', '\u{1F932}'];
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 export const GAMES = {
   quiz: { name: 'Quiz Race', min: 2, max: 6 },

@@ -75,10 +75,11 @@ canvas{width:100%;border-radius:16px;background:#fff7e6;touch-action:none;displa
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let token=null;try{token=localStorage.getItem('cousin_token')}catch(e){}
-let S={users:[],online:[],chat:[],notes:[],locks:{},deeds:[],tdone:[],once:[],board:[],week:[],events:[],photos:[],rooms:[],room:null,games:{},typing:{},unread:0};
+let S={lessons:[],users:[],online:[],chat:[],notes:[],locks:{},deeds:[],tdone:[],once:[],board:[],week:[],events:[],photos:[],rooms:[],room:null,games:{},typing:{},unread:0};
 let me=null,ws=null,view='hub',wsOk=false,retry=0,openNote=null,album='All',viewer=null,lbTab='week';
-const U=id=>S.users.find(u=>u.id===id)||{id,name:'Someone',avatar:'🙂',color:'#ccc'};
-const av=(id,c='')=>{const u=U(id);return `<span class="av ${c} ${S.online.includes(id)?'dotOn':''}" style="background:${u.color}">${u.avatar}</span>`};
+const U=id=>S.users.find(u=>u.id===id)||{id,name:'Someone',avatar:'🌟',color:'#ccc'};
+const AVOK=['🌸','🌟','🌙','🕌','🌺','🍀','🌈','🚀','⚽','🎈','🍎','🌻'];const fav=u=>AVOK.includes(u.avatar)?u.avatar:'🌟';
+const av=(id,c='')=>{const u=U(id);return `<span class="av ${c} ${S.online.includes(id)?'dotOn':''}" style="background:${u.color}">${fav(u)}</span>`};
 const toast=(m,t=2600)=>{const e=$('#toast');e.textContent=m;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',t)};
 const send=m=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m))};
 const IN_APK=!!(window.Android&&window.Android.getServer);
@@ -86,11 +87,7 @@ const IN_APK=!!(window.Android&&window.Android.getServer);
 /* ---------- Mama Gonni ---------- */
 const GONNI_SVG=`<svg viewBox="0 0 300 300" width="240" height="240"><g class="br"><rect x="150" y="30" width="9" height="160" rx="4" fill="#8b5a2b" transform="rotate(24 150 120)"/><path d="M118 168 L196 142 L214 196 L136 214 Z" fill="#e0b050" stroke="#a07020" stroke-width="3" transform="rotate(24 150 120)"/></g>
 <ellipse cx="110" cy="250" rx="62" ry="40" fill="#2bb8ae"/><path d="M62 240 Q110 300 158 240 L150 290 L70 290Z" fill="#fff" opacity=".9"/>
-<circle cx="110" cy="150" r="62" fill="#8b6cf6"/><circle cx="110" cy="158" r="46" fill="#f2c9a0"/>
-<circle cx="92" cy="152" r="14" fill="none" stroke="#3b2a4a" stroke-width="4"/><circle cx="130" cy="152" r="14" fill="none" stroke="#3b2a4a" stroke-width="4"/><line x1="106" y1="152" x2="116" y2="152" stroke="#3b2a4a" stroke-width="4"/>
-<circle cx="92" cy="153" r="4" fill="#3b2a4a"/><circle cx="130" cy="153" r="4" fill="#3b2a4a"/>
-<path d="M76 130 L102 138" stroke="#3b2a4a" stroke-width="6" stroke-linecap="round"/><path d="M144 130 L118 138" stroke="#3b2a4a" stroke-width="6" stroke-linecap="round"/>
-<path d="M92 184 Q110 172 128 184" stroke="#b03a3a" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="76" cy="172" r="7" fill="#ff9aa2" opacity=".7"/><circle cx="144" cy="172" r="7" fill="#ff9aa2" opacity=".7"/></svg>`;
+<circle cx="110" cy="150" r="62" fill="#8b6cf6"/><ellipse cx="110" cy="158" rx="42" ry="46" fill="#6d4fd6"/><path d="M70 140 Q110 100 150 140" stroke="#fff" stroke-width="5" fill="none" opacity=".6"/></svg>`;
 let gonniT=null;
 function gonni(why,msg){
   const M={pin:'Wrong PIN, beta! Mama Gonni is watching! 🧹',rude:'Kind words only! Mama Gonni heard that! 🧹',wrong:'Tsk tsk! Go and study, then come back! 🧹',code:'That is not our family code! 🧹',boo:'Boo! Did you do a good deed today? 🧹',left:'Where are you running? Come back here! 🧹'};
@@ -111,7 +108,7 @@ function connect(){
 function on(m){
   switch(m.t){
     case 'init':{me=m.me;const{t,...rest}=m;Object.assign(S,rest);S.typing={};if(!window.__started){window.__started=true;render();randomGonni()}else render();break}
-    case 'users':case 'deeds':case 'events':case 'photos':case 'notes':{const{t,...rest}=m;Object.assign(S,rest);if(m.t==='users'){me=S.users.find(u=>u.id===me.id)||me}refresh(m.t);break}
+    case 'users':case 'deeds':case 'events':case 'photos':case 'notes':case 'lessons':{const{t,...rest}=m;Object.assign(S,rest);if(m.t==='users'){me=S.users.find(u=>u.id===me.id)||me}refresh(m.t);break}
     case 'locks':S.locks=m.locks;if(view==='note')paintNote();if(view==='notes')render();break;
     case 'chat':S.chat.push(m.m);if(S.chat.length>300)S.chat.shift();if(view==='chat'){addMsg(m.m);send({t:'seen'})}else if(m.m.user!==me.id){S.unread++;if(view==='hub')render()}break;
     case 'chat:del':S.chat=S.chat.filter(x=>x.id!==m.id);if(view==='chat')paintChat();break;
@@ -132,7 +129,7 @@ function on(m){
 function refresh(k){
   if(k==='users'&&(view==='hub'||view==='play'&&!S.room))render();
   else if(k==='deeds'&&view==='deeds')render();else if(k==='events'&&(view==='calendar'||view==='hub'))render();
-  else if(k==='photos'&&view==='album')render();else if(k==='notes'&&(view==='notes'||view==='note'))view==='note'?paintNote():render();
+  else if(k==='photos'&&view==='album')render();else if(k==='lessons'&&view==='learn')vLearn();else if(k==='notes'&&(view==='notes'||view==='note'))view==='note'?paintNote():render();
   if(k==='users'&&view==='chat')paintChat();
 }
 function randomGonni(){setTimeout(()=>{if(view==='hub'&&!document.querySelector('.modal'))gonni('boo');randomGonni()},60000+Math.random()*90000)}
@@ -189,7 +186,7 @@ function vHub(){
 }
 
 /* ---------- chat ---------- */
-const STK=['MashaAllah ✨','JazakAllah Khair 💛','InshaAllah','Assalamu alaikum 👋','Ameen 🤲','Let\'s play! 🎮','😂','❤️','🌙'];
+const STK=['MashaAllah ✨','JazakAllah Khair 💛','InshaAllah','Assalamu alaikum 👋','Ameen 🤲','Let\'s play! 🎮','❤️','🌙'];
 function vChat(){
   $('#main').innerHTML=`<div id="msgs"></div><div class="sub" id="typ" style="height:18px"></div><div class="stk">${STK.map(s=>`<button class="sm" data-s="${esc(s)}">${esc(s)}</button>`).join('')}</div>
   <div class="row"><input id="ci" maxlength="400" placeholder="Write a kind message…" autocomplete="off"><button class="pri" id="cs">Send</button></div>`;
@@ -231,7 +228,7 @@ function paintNote(){
 }
 
 /* ---------- deeds ---------- */
-const EMJ=['⭐','🕌','📖','🤲','💛','🧹','🍪','📞','🌱','🐱','🧸','🎁','🙂','🕋','🌙','✏️'];
+const EMJ=['⭐','🕌','📖','🤲','💛','🧹','🍪','📞','🌱','🍎','🌺','🎁','⚽','🕋','🌙','✏️'];
 function vDeeds(){
   const rows=(lbTab==='week'?S.week:S.board).slice().sort((a,b)=>b.pts-a.pts),mx=Math.max(1,...rows.map(r=>r.pts));
   const done=(d,u)=>d.repeat==='once'?S.once.some(x=>x.d===d.id&&x.u===u):S.tdone.some(x=>x.d===d.id&&x.u===u);
@@ -301,7 +298,7 @@ function vGonni(){
 }
 
 /* ---------- profile ---------- */
-const AVS=['👧','🧕','👦','🧑','🐱','🦋','🌸','🌟','🦄','🐼','🦁','🐰'],COLS=['#ff7aa2','#ffb347','#4ecdc4','#6c8cff','#a78bfa','#7bd88f','#ff6b6b','#f7c948'];
+const AVS=['🌸','🌟','🌙','🕌','🌺','🍀','🌈','🚀','⚽','🎈','🍎','🌻'],COLS=['#ff7aa2','#ffb347','#4ecdc4','#6c8cff','#a78bfa','#7bd88f','#ff6b6b','#f7c948'];
 function profile(){
   let a=me.avatar,c=me.color;
   const adminHtml=me.role==='admin'?`<h3 style="margin-top:16px">👑 Parent panel</h3><label>Family code (share it only with family)</label><div class="row"><input id="fc" value="${esc(S.code||'')}"><button id="fcs">Save</button></div>
@@ -347,12 +344,32 @@ const SURAHS=[
  ['Al-Falaq',['قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ','مِن شَرِّ مَا خَلَقَ','وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ','وَمِن شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ','وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ']],
  ['An-Nas',['قُلْ أَعُوذُ بِرَبِّ النَّاسِ','مَلِكِ النَّاسِ','إِلَٰهِ النَّاسِ','مِن شَرِّ الْوَسْوَاسِ الْخَنَّاسِ','الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ','مِنَ الْجِنَّةِ وَالنَّاسِ']],
 ];
-let learnTab=null;
+let learnTab=null,openLesson=null;
+const LK={story:['📖','Story'],writing:['✍️','Writing task'],lesson:['💡','Lesson']};
+function vLessons(){
+  const L=S.lessons;
+  if(openLesson){const l=L.find(x=>x.id===openLesson);if(l){const k=LK[l.kind]||LK.lesson;
+    $('#main').innerHTML=`<button class="sm" id="lb" style="margin-bottom:10px">‹ From parents</button><div class="card"><div class="sub">${k[0]} ${k[1]}</div><h2 style="margin:4px 0 10px">${esc(l.title)}</h2><div style="white-space:pre-wrap;font-size:18px;line-height:1.6">${esc(l.body)}</div></div>
+    ${l.kind==='writing'?'<button class="pri" id="la" style="width:100%">✍️ Write my answer in Our Notes</button>':''}${me.role==='admin'?'<button class="sm" id="ld" style="margin-top:10px">🗑 Delete this</button>':''}`;
+    $('#lb').onclick=()=>{openLesson=null;vLessons()};
+    if($('#la'))$('#la').onclick=()=>{send({t:'note:new',title:'My answer: '+l.title.slice(0,40)})};
+    if($('#ld'))$('#ld').onclick=()=>{send({t:'lesson:del',id:l.id});openLesson=null;vLessons()};return}openLesson=null}
+  $('#main').innerHTML=`<button class="sm" id="lb" style="margin-bottom:10px">‹ Learning</button>${me.role==='admin'?'<button class="pri" id="la" style="width:100%;margin-bottom:10px">＋ Add a story, task or lesson</button>':''}
+  ${L.length?L.map(l=>{const k=LK[l.kind]||LK.lesson;return `<div class="card row" data-ls="${l.id}" style="cursor:pointer"><div style="font-size:32px">${k[0]}</div><div style="flex:1"><b>${esc(l.title)}</b><div class="sub">${k[1]}</div></div>›</div>`}).join(''):'<div class="sub" style="text-align:center;margin-top:30px">No lessons from parents yet 💌</div>'}`;
+  $('#lb').onclick=()=>{learnTab=null;vLearn()};
+  document.querySelectorAll('[data-ls]').forEach(c=>c.onclick=()=>{openLesson=+c.dataset.ls;vLessons()});
+  if($('#la'))$('#la').onclick=()=>{let kind='story';sheet(`<h3>New for the kids</h3><label>Type</label><div class="row wrap" id="lk">${Object.entries(LK).map(([k,v])=>`<button class="sm ${k==='story'?'pri':''}" data-k="${k}">${v[0]} ${v[1]}</button>`).join('')}</div>
+    <label>Title</label><input id="lt" maxlength="80" placeholder="e.g. The honest shepherd"><label>Text</label><textarea id="lbd" style="min-height:30vh" placeholder="Write the story, the writing task or the lesson here…"></textarea>
+    <div class="row" style="justify-content:flex-end;margin-top:12px"><button onclick="closeSheet()">Cancel</button><button class="pri" id="lok">Share</button></div>`,m=>{
+    m.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{kind=b.dataset.k;m.querySelectorAll('[data-k]').forEach(x=>x.classList.toggle('pri',x===b))});
+    $('#lok').onclick=()=>{const t=$('#lt').value.trim(),b=$('#lbd').value.trim();if(!t||!b)return;send({t:'lesson:add',kind,title:t,body:b});closeSheet();toast('Shared with the cousins 💌')}})};
+}
 function vLearn(){
   if(!learnTab){
-    $('#main').innerHTML=`<div class="tiles">${[['letters','🔤','Arabic letters','#4c9be8'],['duas','🤲','Daily duas','#2bb8ae'],['surahs','📖','Short surahs','#8b6cf6'],['wudu','💧','Wudu steps','#4c9be8'],['salah','🕌','Salah guide','#ef7d57'],['pillars','🧱','5 Pillars','#e0679c'],['iman','💛','6 Pillars of Iman','#f7b731'],['quiz','🎯','Practice quiz','#6b4fa0']].map(t=>`<div class="tile" style="background:${t[3]}" data-l="${t[0]}"><b>${t[1]}</b>${t[2]}</div>`).join('')}</div><div class="sub" style="margin-top:12px;text-align:center">Parents: please check recitation with a qualified teacher. 💛</div>`;
+    $('#main').innerHTML=`<div class="tiles">${[['parents','💌','From parents','#e0679c'],['letters','🔤','Arabic letters','#4c9be8'],['duas','🤲','Daily duas','#2bb8ae'],['surahs','📖','Short surahs','#8b6cf6'],['wudu','💧','Wudu steps','#4c9be8'],['salah','🕌','Salah guide','#ef7d57'],['pillars','🧱','5 Pillars','#d9822b'],['iman','💛','6 Pillars of Iman','#f7b731'],['quiz','🎯','Practice quiz','#6b4fa0']].map(t=>`<div class="tile" style="background:${t[3]}" data-l="${t[0]}"><b>${t[1]}</b>${t[2]}</div>`).join('')}</div><div class="sub" style="margin-top:12px;text-align:center">Parents: please check recitation with a qualified teacher. 💛</div>`;
     document.querySelectorAll('[data-l]').forEach(t=>t.onclick=()=>{if(t.dataset.l==='quiz'){go('play');return}learnTab=t.dataset.l;vLearn()});return}
   const back=`<button class="sm" id="lb" style="margin-bottom:10px">‹ Learning</button>`;let h='';
+  if(learnTab==='parents')return vLessons();
   if(learnTab==='letters')h=`<div class="sub" style="margin-bottom:8px">Tap a letter to see its name. Say it out loud with a parent!</div><div class="grid3">${LETTERS.map(l=>`<div class="card letter" data-lt="${l[1]}" style="margin:0;cursor:pointer">${l[0]}<div class="sub" style="font-family:system-ui;direction:ltr;min-height:20px"></div></div>`).join('')}</div>`;
   else if(learnTab==='duas')h=DUAS.map(d=>`<div class="card"><b>${esc(d[0])}</b><div class="ar">${d[1]}</div><div><i>${esc(d[2])}</i></div><div class="sub">${esc(d[3])}</div></div>`).join('');
   else if(learnTab==='surahs')h=SURAHS.map(s=>`<div class="card"><b>${s[0]}</b>${s[1].map((v,i)=>`<div class="ar">${v} <span class="sub">﴿${i+1}﴾</span></div>`).join('')}</div>`).join('');
@@ -393,7 +410,7 @@ let qT=null;
 function gQuiz(r){
   const q=r.q;if(!q||!q.text)return;const mine=q.mine;
   $('#main').innerHTML=`${scoreBar(r)}<div class="card"><div class="row sp"><span class="pill">Question ${q.i+1}/${q.n}</span><span class="pill" id="qt">⏱ ${q.left}</span></div><h2 style="font-size:20px">${esc(q.text)}</h2>
-  ${q.opts.map((o,i)=>`<button class="opt ${q.reveal?(i===q.correct?'ok':(mine===i?'bad':'')):(mine===i?'mine':'')}" data-o="${i}" ${mine>=0||q.reveal?'disabled':''}>${esc(o)} ${q.reveal?Object.entries(q.picks||{}).filter(([u,c])=>c===i).map(([u])=>U(+u).avatar).join(''):''}</button>`).join('')}
+  ${q.opts.map((o,i)=>`<button class="opt ${q.reveal?(i===q.correct?'ok':(mine===i?'bad':'')):(mine===i?'mine':'')}" data-o="${i}" ${mine>=0||q.reveal?'disabled':''}>${esc(o)} ${q.reveal?Object.entries(q.picks||{}).filter(([u,c])=>c===i).map(([u])=>fav(U(+u))).join(''):''}</button>`).join('')}
   <div class="sub">${q.reveal?(mine===q.correct?'✅ Correct!':mine>=0?'❌ Not this time':'⏰ Time is up'):mine>=0?'Waiting for cousins… ('+q.answered.length+'/'+r.players.length+')':'Pick your answer!'}</div></div><button class="sm" id="gl">Leave</button>`;
   document.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>send({t:'g:act',a:'ans',c:+b.dataset.o}));$('#gl').onclick=leaveRoom;
   clearInterval(qT);if(!q.reveal){let l=q.left;qT=setInterval(()=>{l--;const e=$('#qt');if(e)e.textContent='⏱ '+Math.max(0,l);if(l<=0)clearInterval(qT)},1000)}
@@ -405,7 +422,7 @@ function gMemory(r){
 }
 function gDots(r){
   const d=r.dt,P=50,O=25;let s='';
-  for(let i=0;i<5;i++)for(let j=0;j<5;j++){const o=d.box[i][j];if(o!==-1)s+=`<rect x="${O+j*P+3}" y="${O+i*P+3}" width="${P-6}" height="${P-6}" rx="6" fill="${U(o).color}" opacity=".85"/><text x="${O+j*P+P/2}" y="${O+i*P+P/2+7}" font-size="20" text-anchor="middle">${U(o).avatar}</text>`}
+  for(let i=0;i<5;i++)for(let j=0;j<5;j++){const o=d.box[i][j];if(o!==-1)s+=`<rect x="${O+j*P+3}" y="${O+i*P+3}" width="${P-6}" height="${P-6}" rx="6" fill="${U(o).color}" opacity=".85"/><text x="${O+j*P+P/2}" y="${O+i*P+P/2+7}" font-size="20" text-anchor="middle">${fav(U(o))}</text>`}
   const edge=(k,i,j)=>{const taken=(k==='h'?d.h:d.v)[i][j],x1=O+j*P,y1=O+i*P,x2=k==='h'?x1+P:x1,y2=k==='h'?y1:y1+P;return taken!==-1?`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${U(taken).color}" stroke-width="6" stroke-linecap="round"/>`:`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#e5d8c0" stroke-width="3" stroke-linecap="round"/><line data-k="${k}" data-r="${i}" data-c="${j}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="22" style="cursor:pointer"/>`};
   for(let i=0;i<6;i++)for(let j=0;j<5;j++)s+=edge('h',i,j);for(let i=0;i<5;i++)for(let j=0;j<6;j++)s+=edge('v',i,j);
   for(let i=0;i<6;i++)for(let j=0;j<6;j++)s+=`<circle cx="${O+j*P}" cy="${O+i*P}" r="5" fill="#3b2a4a"/>`;
@@ -435,9 +452,9 @@ function drawChase(){
   cx.fillStyle='#ffe9b8';for(let i=0;i<10;i++)for(let j=0;j<6;j++)if((i+j)%2==0)cx.fillRect(i*80,j*80,80,80);
   if(!s){cx.fillStyle='#3b2a4a';cx.font='bold 30px system-ui';cx.textAlign='center';cx.fillText('Get ready…',400,240);return}
   cx.textAlign='center';cx.textBaseline='middle';cx.font='30px system-ui';s.st.forEach(p=>cx.fillText('⭐',p[0],p[1]));
-  for(const [id,p] of Object.entries(s.p)){const u=U(+id);cx.fillStyle=u.color;cx.beginPath();cx.arc(p[0],p[1],22,0,7);cx.fill();cx.lineWidth=3;cx.strokeStyle=+id===me.id?'#3b2a4a':'#fff';cx.stroke();cx.font='24px system-ui';cx.fillText(u.avatar,p[0],p[1]+1);if(p[2]){cx.font='22px system-ui';cx.fillText('💫',p[0],p[1]-30)}cx.font='bold 13px system-ui';cx.fillStyle='#3b2a4a';cx.fillText(u.name+' '+p[3]+'⭐',p[0],p[1]+36)}
-  cx.font='54px system-ui';cx.fillText('👵',s.g[0],s.g[1]);cx.font='34px system-ui';cx.fillText('🧹',s.g[0]+34,s.g[1]+14);
-  const t=$('#ct');if(t)t.textContent='⏱ '+s.left;const sc=$('#csc');if(sc)sc.innerHTML=Object.entries(s.p).map(([id,p])=>`<span class="pill">${U(+id).avatar} ${p[3]}</span>`).join(' ');
+  for(const [id,p] of Object.entries(s.p)){const u=U(+id);cx.fillStyle=u.color;cx.beginPath();cx.arc(p[0],p[1],22,0,7);cx.fill();cx.lineWidth=3;cx.strokeStyle=+id===me.id?'#3b2a4a':'#fff';cx.stroke();cx.font='24px system-ui';cx.fillText(fav(u),p[0],p[1]+1);if(p[2]){cx.font='22px system-ui';cx.fillText('💫',p[0],p[1]-30)}cx.font='bold 13px system-ui';cx.fillStyle='#3b2a4a';cx.fillText(u.name+' '+p[3]+'⭐',p[0],p[1]+36)}
+  cx.fillStyle='#2bb8ae';cx.beginPath();cx.ellipse(s.g[0],s.g[1]+22,26,24,0,0,7);cx.fill();cx.fillStyle='#8b6cf6';cx.beginPath();cx.arc(s.g[0],s.g[1]-8,24,0,7);cx.fill();cx.fillStyle='#6d4fd6';cx.beginPath();cx.ellipse(s.g[0],s.g[1]-4,17,19,0,0,7);cx.fill();cx.font='34px system-ui';cx.fillText('🧹',s.g[0]+34,s.g[1]+14);
+  const t=$('#ct');if(t)t.textContent='⏱ '+s.left;const sc=$('#csc');if(sc)sc.innerHTML=Object.entries(s.p).map(([id,p])=>`<span class="pill">${fav(U(+id))} ${p[3]}</span>`).join(' ');
   if(s.hit&&+s.hit===me.id&&!drawChase.t){drawChase.t=1;toast('Bonk! Mama Gonni got you! 💫',1200);setTimeout(()=>drawChase.t=0,1500)}
 }
 connect();
