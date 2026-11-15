@@ -16,6 +16,12 @@ const AUDIO = path.join(DATA, 'audio');
 fs.mkdirSync(AUDIO, { recursive: true });
 const AUDIO_TYPES = { mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', opus: 'audio/ogg', wav: 'audio/wav', webm: 'audio/webm' };
 const MAX_AUDIO = 150e6;
+const TTS_DIR = path.join(DATA, 'tts');
+fs.mkdirSync(TTS_DIR, { recursive: true });
+const TTS_KEY = (process.env.GOOGLE_TTS_KEY || '').trim();
+const TTS_VOICE = process.env.TTS_VOICE || 'ar-XA-Wavenet-A';
+const TTS_ENDPOINT = process.env.TTS_ENDPOINT || 'https://texttospeech.googleapis.com/v1/text:synthesize';
+const ttsHits = new Map();
 const db = new DatabaseSync(path.join(DATA, 'cousin.db'));
 db.exec(`
 PRAGMA journal_mode=WAL;
@@ -179,6 +185,24 @@ const server = http.createServer(async (req, res) => {
       const file = crypto.randomBytes(12).toString('hex') + '.' + ext; fs.writeFileSync(path.join(PHOTOS, file), Buffer.concat(chunks));
       run('INSERT INTO photos(user,album,caption,file,created) VALUES(?,?,?,?,?)', u.id, clean(url.searchParams.get('album'), 30) || 'Everyday', clean(url.searchParams.get('caption'), 120), file, Date.now());
       bcast('photos'); return json(res, 200, { ok: true });
+    }
+    if (req.method === 'GET' && url.pathname === '/api/tts') {
+      if (!TTS_KEY) return json(res, 503, { error: 'no_key' });
+      if (String(url.searchParams.get('c') || '').toLowerCase() !== String(getSet('code')).toLowerCase()) { fail(ip); return json(res, 403, { error: 'code' }); }
+      const text = String(url.searchParams.get('t') || '').trim();
+      if (!text || text.length > 300 || !/[\u0600-\u06FF]/.test(text)) return json(res, 400, { error: 'text' });
+      const f = path.join(TTS_DIR, crypto.createHash('sha1').update(TTS_VOICE + '|' + text).digest('hex') + '.mp3');
+      if (!fs.existsSync(f)) {
+        const now = Date.now(), h = (ttsHits.get(ip) || []).filter(x => now - x < 60000);
+        if (h.length >= 60) return json(res, 429, { error: 'slow' });
+        h.push(now); ttsHits.set(ip, h);
+        try {
+          const r = await fetch(TTS_ENDPOINT + '?key=' + encodeURIComponent(TTS_KEY), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ input: { text }, voice: { languageCode: 'ar-XA', name: TTS_VOICE }, audioConfig: { audioEncoding: 'MP3', speakingRate: 0.85 } }), signal: AbortSignal.timeout(15000) });
+          if (!r.ok) { console.log('TTS error', r.status, (await r.text()).slice(0, 200)); return json(res, 502, { error: 'google', status: r.status }); }
+          const j = await r.json(); fs.writeFileSync(f, Buffer.from(j.audioContent, 'base64'));
+        } catch (e) { console.log('TTS fail', e.message); return json(res, 502, { error: 'google' }); }
+      }
+      const st = fs.statSync(f); res.writeHead(200, { 'content-type': 'audio/mpeg', 'content-length': st.size, 'cache-control': 'public, max-age=31536000' }); return fs.createReadStream(f).pipe(res);
     }
     if (req.method === 'POST' && url.pathname === '/api/waz') {
       const u = userForToken(req.headers['x-token']); if (!u) return json(res, 401, { error: 'auth' });

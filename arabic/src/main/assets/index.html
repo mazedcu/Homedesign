@@ -96,11 +96,11 @@ let stack=[];let cur={v:'home'};
 function nav(v,o={}){stack.push(cur);cur=Object.assign({v},o);render();scrollTo(0,0)}
 function back(){if(!stack.length)return false;cur=stack.pop();render();return true}
 window.appBack=()=>back();
-const TITLE={home:'Little Arabic',cats:'Words',deck:'Flashcards',quiz:'Quiz',match:'Match',surahs:'Short Surahs',surah:'Surah',stories:'Stories',story:'Story'};
+const TITLE={voice:'Voice',home:'Little Arabic',cats:'Words',deck:'Flashcards',quiz:'Quiz',match:'Match',surahs:'Short Surahs',surah:'Surah',stories:'Stories',story:'Story'};
 function render(){
-  $('#app').innerHTML=`<header>${cur.v!=='home'?'<button class="ghost" id="bk" style="font-size:24px">‹</button>':''}<h1>${cur.title||TITLE[cur.v]}</h1><span class="pill">⭐ ${P.stars}</span></header><div id="main"></div>`;
-  if($('#bk'))$('#bk').onclick=back;
-  ({home:vHome,cats:vCats,deck:vDeck,quiz:vQuiz,match:vMatch,surahs:vSurahs,surah:vSurah,stories:vStories,story:vStory,menu:vMenu}[cur.v])();
+  $('#app').innerHTML=`<header>${cur.v!=='home'?'<button class="ghost" id="bk" style="font-size:24px">‹</button>':''}<h1>${cur.title||TITLE[cur.v]}</h1>${cur.v==='home'&&window.Android&&Android.voiceMode?'<button class="ghost" id="gv" style="font-size:20px">🔊</button>':''}<span class="pill">⭐ ${P.stars}</span></header><div id="main"></div>`;
+  if($('#bk'))$('#bk').onclick=back;if($('#gv'))$('#gv').onclick=()=>nav('voice');
+  ({home:vHome,cats:vCats,deck:vDeck,quiz:vQuiz,match:vMatch,surahs:vSurahs,surah:vSurah,stories:vStories,story:vStory,menu:vMenu,voice:vVoice}[cur.v])();
 }
 function vHome(){
   const kn=Object.keys(P.known).length,tot=ALL.length;
@@ -178,6 +178,18 @@ function vStory(){
   document.querySelectorAll('[data-k]').forEach(e=>e.onclick=()=>{const k=+e.dataset.k;cur.show[k]=!cur.show[k];vStory()});
   document.querySelectorAll('[data-sp]').forEach(b=>b.onclick=e=>{e.stopPropagation();speak(s.s[+b.dataset.sp][0])});
   document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{cur.ans=+b.dataset.q;if(cur.ans===q[2]&&!P.story[s.id]){P.story[s.id]=1;addStars(3);toast('Correct! +3 ⭐')}vStory()});
+}
+function vVoice(){
+  const cloud=Android.voiceMode()==='cloud';
+  $('#main').innerHTML=`<div class="card"><b>${cloud?'✅ Google voice is ON':'📱 Using the phone voice'}</b><div class="sub" style="margin-top:6px">For the clear Google voice, paste the invite code from Cousin Heaven (the same code the cousins use). The family server makes the sound with Google and the phone keeps a copy.</div></div>
+  <div class="card"><input id="vc" placeholder="Invite code" autocapitalize="none" autocomplete="off" style="width:100%;font:inherit;padding:12px;border:2px solid var(--line);border-radius:12px"><div class="sub" id="vm" style="margin:6px 0"></div>
+  <button class="pri" style="width:100%" id="vs">Save &amp; use Google voice</button></div>
+  <button style="width:100%;margin-bottom:10px" id="vt">🔊 Test voice</button><button style="width:100%;margin-bottom:10px" id="vd" ${cloud?'':'disabled'}>⬇️ Save all voices for offline use</button><button style="width:100%" id="vp">Use phone voice instead</button>`;
+  const m=t=>$('#vm').textContent=t;
+  $('#vs').onclick=()=>{if(Android.setVoiceInvite($('#vc').value)){m('Saved. Tap Test voice.');setTimeout(vVoice,600)}else m('That code does not look right.')};
+  $('#vt').onclick=()=>speak('السَّلَامُ عَلَيْكُمْ');
+  $('#vd').onclick=()=>{const L=[...ALL.map(w=>w.ar),...STORIES.flatMap(s=>s.s.map(x=>x[0]))];Android.prefetch([...new Set(L)].join('\n'));toast('Downloading voices… you can keep using the app.',3500)};
+  $('#vp').onclick=()=>{Android.clearVoice();vVoice()};
 }
 render();
 </script></body></html>
