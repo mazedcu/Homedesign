@@ -1,3 +1,4 @@
+name: cousinheaven
 services:
   app:
     build: .
@@ -5,9 +6,11 @@ services:
     env_file: .env
     volumes:
       - ./data:/data
-    expose: ["3000"]
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-3100}:3000"
   caddy:
     image: caddy:2
+    profiles: ["caddy"]
     restart: unless-stopped
     ports: ["80:80","443:443"]
     volumes:
