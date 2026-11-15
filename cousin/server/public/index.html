@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Cousin Heaven</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#ff7aa2">
+<style>
+:root{--bg:#fff4e0;--card:#fff;--ink:#3b2a4a;--mut:#8a7a99;--pink:#ff7aa2;--teal:#2bb8ae;--gold:#f7b731;--pur:#8b6cf6;--red:#ef5350;--line:#f0e2c8}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#app{max-width:640px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+header{display:flex;align-items:center;gap:8px;padding:10px 12px;position:sticky;top:0;background:var(--bg);z-index:5}
+header h1{font-size:19px;margin:0;flex:1}
+button{font:inherit;color:var(--ink);background:#fff;border:2px solid var(--line);border-radius:14px;padding:9px 14px;cursor:pointer;font-weight:600}
+button.pri{background:var(--pink);border-color:var(--pink);color:#fff}
+button.teal{background:var(--teal);border-color:var(--teal);color:#fff}
+button.sm{padding:5px 10px;font-size:13px;border-radius:10px}
+button.ghost{background:none;border:none;padding:6px 10px}
+button:disabled{opacity:.5}
+#main{flex:1;padding:4px 12px calc(env(safe-area-inset-bottom) + 16px)}
+.card{background:var(--card);border-radius:18px;padding:14px;margin-bottom:12px;box-shadow:0 2px 0 var(--line)}
+.row{display:flex;align-items:center;gap:10px}.sp{justify-content:space-between}.wrap{flex-wrap:wrap}
+.sub{color:var(--mut);font-size:13px}
+.av{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:20px;flex:none;border:2px solid #fff;box-shadow:0 1px 0 #0002}
+.av.sm{width:26px;height:26px;font-size:15px}.av.lg{width:56px;height:56px;font-size:32px}
+.dotOn{position:relative}.dotOn::after{content:"";position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:50%;background:#34c759;border:2px solid #fff}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{border-radius:22px;padding:16px 12px;text-align:center;color:#fff;font-weight:800;font-size:17px;cursor:pointer;position:relative;box-shadow:0 4px 0 #0002}
+.tile b{display:block;font-size:44px;margin-bottom:2px}
+.badge{position:absolute;top:8px;right:10px;background:#fff;color:var(--red);border-radius:12px;padding:1px 8px;font-size:13px}
+.pill{background:#fff;border:2px solid var(--line);border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700}
+h2{font-size:17px;margin:14px 0 8px}
+input,textarea,select{font:inherit;color:var(--ink);width:100%;border:2px solid var(--line);border-radius:12px;padding:10px;background:#fff}
+textarea{min-height:46vh;resize:vertical}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px;font-weight:600}
+.modal{position:fixed;inset:0;background:#2b1a4a99;display:flex;align-items:flex-end;justify-content:center;z-index:30}
+.sheet{background:#fff;width:100%;max-width:640px;border-radius:24px 24px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom) + 16px);max-height:92vh;overflow:auto}
+.sheet h3{margin:0 0 8px}
+#toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:#3b2a4a;color:#fff;padding:10px 16px;border-radius:20px;z-index:60;display:none;max-width:90vw;text-align:center}
+#conn{background:var(--red);color:#fff;text-align:center;font-size:13px;padding:3px;display:none}
+/* chat */
+#msgs{display:flex;flex-direction:column;gap:8px;overflow-y:auto;height:calc(100vh - 230px);padding:4px 2px}
+.m{display:flex;gap:8px;align-items:flex-end;max-width:88%}.m.me{align-self:flex-end;flex-direction:row-reverse}
+.bub{background:#fff;border-radius:16px;padding:8px 12px;box-shadow:0 1px 0 var(--line);word-break:break-word}.m.me .bub{background:var(--pink);color:#fff}
+.bub small{display:block;font-size:11px;opacity:.7}
+.stk{display:flex;gap:6px;overflow-x:auto;padding:6px 0}.stk button{white-space:nowrap;padding:5px 10px;font-size:13px}
+/* games */
+.opt{display:block;width:100%;text-align:left;margin:8px 0;padding:14px;font-size:17px}
+.opt.ok{background:#c8f7d4;border-color:#34c759}.opt.bad{background:#ffd6d6;border-color:var(--red)}.opt.mine{border-color:var(--pur)}
+.mem{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.mc{aspect-ratio:1;border-radius:14px;background:var(--pur);color:#fff;font-size:34px;display:flex;align-items:center;justify-content:center;border:0;padding:0}.mc.up{background:#fff;border:3px solid var(--line)}.mc.got{background:#d8f5e8;border:3px solid #34c759}
+.tile2{display:inline-flex;width:46px;height:54px;background:var(--gold);border-radius:10px;align-items:center;justify-content:center;font-size:26px;font-weight:800;margin:3px;box-shadow:0 3px 0 #c98a00;color:#fff}
+.score{display:flex;gap:8px;overflow-x:auto}.score .card{min-width:84px;text-align:center;padding:8px;margin:0}
+.turn{outline:3px solid var(--gold)}
+canvas{width:100%;border-radius:16px;background:#fff7e6;touch-action:none;display:block}
+.bar{height:10px;background:#f1e5cf;border-radius:8px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--gold))}
+.gc{display:flex;gap:12px;align-items:center;padding:12px}.gc b.e{font-size:36px}
+/* gonni */
+#gonni{position:fixed;inset:0;z-index:80;display:none;pointer-events:auto;background:#0003;overflow:hidden}
+#gonni .g{position:absolute;bottom:14%;left:-260px;width:240px;animation:run 2.6s ease-in-out forwards}
+#gonni .say{position:absolute;bottom:calc(14% + 210px);left:50%;transform:translateX(-50%);background:#fff;border:3px solid var(--ink);border-radius:18px;padding:10px 14px;max-width:80vw;text-align:center;font-weight:800;animation:pop .3s}
+#gonni .br{transform-origin:150px 120px;animation:sweep .35s ease-in-out infinite alternate}
+@keyframes run{0%{left:-260px}55%{left:calc(50% - 120px)}100%{left:110%}}
+@keyframes sweep{from{transform:rotate(-18deg)}to{transform:rotate(22deg)}}
+@keyframes pop{from{transform:translateX(-50%) scale(.3)}to{transform:translateX(-50%) scale(1)}}
+.shake{animation:shk .35s}@keyframes shk{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.letter{font-size:44px;text-align:center;font-family:"Noto Naskh Arabic","Amiri",serif;direction:rtl}
+.ar{font-family:"Noto Naskh Arabic","Amiri","Traditional Arabic",serif;font-size:24px;direction:rtl;text-align:right;line-height:1.9}
+.chip{padding:5px 12px;border-radius:16px;background:#fff;border:2px solid var(--line);font-weight:700;font-size:13px;white-space:nowrap;cursor:pointer}.chip.on{background:var(--pur);color:#fff;border-color:var(--pur)}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.ph{aspect-ratio:1;object-fit:cover;width:100%;border-radius:12px;background:#eee}
+.lb{display:flex;align-items:center;gap:8px;margin:6px 0}
+</style></head><body>
+<div id="app"><div id="conn">Reconnecting…</div><header id="hd"></header><div id="main"></div></div>
+<div id="toast"></div>
+<div id="gonni"><div class="say" id="gsay"></div><div class="g" id="gfig"></div></div>
+<input type="file" id="fph" accept="image/*" multiple hidden>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let token=null;try{token=localStorage.getItem('cousin_token')}catch(e){}
+let S={users:[],online:[],chat:[],notes:[],locks:{},deeds:[],tdone:[],once:[],board:[],week:[],events:[],photos:[],rooms:[],room:null,games:{},typing:{},unread:0};
+let me=null,ws=null,view='hub',wsOk=false,retry=0,openNote=null,album='All',viewer=null,lbTab='week';
+const U=id=>S.users.find(u=>u.id===id)||{id,name:'Someone',avatar:'🙂',color:'#ccc'};
+const av=(id,c='')=>{const u=U(id);return `<span class="av ${c} ${S.online.includes(id)?'dotOn':''}" style="background:${u.color}">${u.avatar}</span>`};
+const toast=(m,t=2600)=>{const e=$('#toast');e.textContent=m;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',t)};
+const send=m=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m))};
+const IN_APK=!!(window.Android&&window.Android.getServer);
+
+/* ---------- Mama Gonni ---------- */
+const GONNI_SVG=`<svg viewBox="0 0 300 300" width="240" height="240"><g class="br"><rect x="150" y="30" width="9" height="160" rx="4" fill="#8b5a2b" transform="rotate(24 150 120)"/><path d="M118 168 L196 142 L214 196 L136 214 Z" fill="#e0b050" stroke="#a07020" stroke-width="3" transform="rotate(24 150 120)"/></g>
+<ellipse cx="110" cy="250" rx="62" ry="40" fill="#2bb8ae"/><path d="M62 240 Q110 300 158 240 L150 290 L70 290Z" fill="#fff" opacity=".9"/>
+<circle cx="110" cy="150" r="62" fill="#8b6cf6"/><circle cx="110" cy="158" r="46" fill="#f2c9a0"/>
+<circle cx="92" cy="152" r="14" fill="none" stroke="#3b2a4a" stroke-width="4"/><circle cx="130" cy="152" r="14" fill="none" stroke="#3b2a4a" stroke-width="4"/><line x1="106" y1="152" x2="116" y2="152" stroke="#3b2a4a" stroke-width="4"/>
+<circle cx="92" cy="153" r="4" fill="#3b2a4a"/><circle cx="130" cy="153" r="4" fill="#3b2a4a"/>
+<path d="M76 130 L102 138" stroke="#3b2a4a" stroke-width="6" stroke-linecap="round"/><path d="M144 130 L118 138" stroke="#3b2a4a" stroke-width="6" stroke-linecap="round"/>
+<path d="M92 184 Q110 172 128 184" stroke="#b03a3a" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="76" cy="172" r="7" fill="#ff9aa2" opacity=".7"/><circle cx="144" cy="172" r="7" fill="#ff9aa2" opacity=".7"/></svg>`;
+let gonniT=null;
+function gonni(why,msg){
+  const M={pin:'Wrong PIN, beta! Mama Gonni is watching! 🧹',rude:'Kind words only! Mama Gonni heard that! 🧹',wrong:'Tsk tsk! Go and study, then come back! 🧹',code:'That is not our family code! 🧹',boo:'Boo! Did you do a good deed today? 🧹',left:'Where are you running? Come back here! 🧹'};
+  $('#gsay').textContent=msg||M[why]||M.boo;const f=$('#gfig');f.innerHTML=GONNI_SVG;f.style.animation='none';void f.offsetWidth;f.style.animation='';
+  $('#gonni').style.display='block';clearTimeout(gonniT);gonniT=setTimeout(()=>$('#gonni').style.display='none',2700);
+}
+$('#gonni').onclick=()=>{$('#gonni').style.display='none'};
+
+/* ---------- connection ---------- */
+function connect(){
+  if(!token)return login();
+  ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws?token='+token);
+  ws.onopen=()=>{wsOk=true;retry=0;$('#conn').style.display='none'};
+  ws.onclose=()=>{wsOk=false;if(!token)return;$('#conn').style.display='block';setTimeout(connect,Math.min(5000,1000+retry++*800))};
+  ws.onmessage=e=>on(JSON.parse(e.data));
+  clearInterval(connect.pi);connect.pi=setInterval(()=>send({t:'ping'}),20000);
+}
+function on(m){
+  switch(m.t){
+    case 'init':{me=m.me;const{t,...rest}=m;Object.assign(S,rest);S.typing={};if(!window.__started){window.__started=true;render();randomGonni()}else render();break}
+    case 'users':case 'deeds':case 'events':case 'photos':case 'notes':{const{t,...rest}=m;Object.assign(S,rest);if(m.t==='users'){me=S.users.find(u=>u.id===me.id)||me}refresh(m.t);break}
+    case 'locks':S.locks=m.locks;if(view==='note')paintNote();if(view==='notes')render();break;
+    case 'chat':S.chat.push(m.m);if(S.chat.length>300)S.chat.shift();if(view==='chat'){addMsg(m.m);send({t:'seen'})}else if(m.m.user!==me.id){S.unread++;if(view==='hub')render()}break;
+    case 'chat:del':S.chat=S.chat.filter(x=>x.id!==m.id);if(view==='chat')paintChat();break;
+    case 'chat:clear':S.chat=[];if(view==='chat')paintChat();break;
+    case 'typing':S.typing[m.u]=Date.now();if(view==='chat')paintTyping();break;
+    case 'gonni':gonni(m.why);break;
+    case 'wrong':gonni('wrong');shakeEl('#guess');break;
+    case 'toast':toast(m.m);break;
+    case 'note:opened':openNote=m.id;view='note';render();break;
+    case 'cheer':toast(U(m.u).name+' did: '+m.emoji+' '+m.deed+'  +'+m.points+'⭐',3200);break;
+    case 'rooms':S.rooms=m.rooms;if(view==='play'&&!S.room)render();break;
+    case 'room':{const had=S.room;S.room=m.room;if(!m.room&&had&&had.game==='chase')S.cs=null;if(view==='play')renderRoom(had);break}
+    case 'cs':S.cs=m;if(view==='play'&&S.room&&S.room.game==='chase')drawChase();break;
+    case 'code':S.code=m.code;break;
+    case 'kicked':token=null;try{localStorage.removeItem('cousin_token')}catch(e){}login('You were removed from the family.');break;
+  }
+}
+function refresh(k){
+  if(k==='users'&&(view==='hub'||view==='play'&&!S.room))render();
+  else if(k==='deeds'&&view==='deeds')render();else if(k==='events'&&(view==='calendar'||view==='hub'))render();
+  else if(k==='photos'&&view==='album')render();else if(k==='notes'&&(view==='notes'||view==='note'))view==='note'?paintNote():render();
+  if(k==='users'&&view==='chat')paintChat();
+}
+function randomGonni(){setTimeout(()=>{if(view==='hub'&&!document.querySelector('.modal'))gonni('boo');randomGonni()},60000+Math.random()*90000)}
+function shakeEl(s){const e=$(s);if(e){e.classList.remove('shake');void e.offsetWidth;e.classList.add('shake')}}
+
+/* ---------- login ---------- */
+function login(msg){
+  $('#hd').innerHTML='';
+  $('#main').innerHTML=`<div style="text-align:center;margin:20px 0 8px"><div style="font-size:64px">🏡✨</div><h1 style="margin:4px 0">Cousin Heaven</h1><div class="sub">A safe, happy place for our family cousins</div></div>
+  <div class="card"><label>Your name</label><input id="ln" maxlength="20" autocomplete="off" placeholder="e.g. Aisha">
+  <label>Secret PIN (4 numbers)</label><input id="lp" type="password" inputmode="numeric" maxlength="4" placeholder="••••">
+  <label>Family code <span class="sub">(only the first time)</span></label><input id="lc" autocomplete="off" placeholder="Ask your parents">
+  <div class="sub" id="lerr" style="color:var(--red);margin-top:8px">${esc(msg||'')}</div>
+  <button class="pri" id="lgo" style="width:100%;margin-top:10px;font-size:18px">Let's go! 🚀</button>
+  ${IN_APK?'<button class="ghost sm" id="lsrv" style="width:100%;margin-top:6px">Change server</button>':''}</div>`;
+  const go=async()=>{
+    const name=$('#ln').value.trim(),pin=$('#lp').value,code=$('#lc').value.trim();
+    if(name.length<2||!/^\d{4}$/.test(pin)){$('#lerr').textContent='Please type your name and a 4-number PIN.';shakeEl('.card');return}
+    $('#lgo').disabled=true;
+    try{const r=await fetch('/api/join',{method:'POST',body:JSON.stringify({name,pin,code})});const j=await r.json();
+      if(r.ok){token=j.token;try{localStorage.setItem('cousin_token',token)}catch(e){}window.__started=false;connect()}
+      else{const w=j.error==='pin'?'pin':j.error==='code'?'code':null;$('#lerr').textContent=j.error==='pin'?'Wrong PIN for this name.':j.error==='code'?'That family code is not right. (New members need it.)':j.error==='slow'?'Too many tries. Wait a few minutes.':'Please check what you typed.';if(w)gonni(w)}}
+    catch(e){$('#lerr').textContent='Cannot reach the server. Check your internet.'}
+    $('#lgo').disabled=false};
+  $('#lgo').onclick=go;$('#lp').onkeydown=e=>{if(e.key==='Enter')go()};
+  if($('#lsrv'))$('#lsrv').onclick=()=>Android.resetServer();
+}
+
+/* ---------- shell ---------- */
+const TITLES={hub:'Cousin Heaven ✨',chat:'Family Chat',notes:'Our Notes',note:'Note',deeds:'Good Deeds',album:'Our Album',learn:'Learning Zone',calendar:'Special Days',play:'Play Zone',gonni:'Mama Gonni'};
+function go(v){if(S.room&&view==='play'&&v!=='play'&&S.room.state==='playing'){toast('Finish or leave your game first');return}view=v;if(v==='chat')S.unread=0;render();scrollTo(0,0)}
+function render(){
+  if(!me)return;
+  $('#hd').innerHTML=(view==='hub'?'':'<button class="ghost" id="bk" style="font-size:22px">‹</button>')+`<h1>${TITLES[view]}</h1><button class="ghost" id="pf">${av(me.id)}</button>`;
+  if($('#bk'))$('#bk').onclick=()=>{if(view==='note'){send({t:'note:unlock',id:openNote});view='notes'}else if(view==='play'&&S.room){leaveRoom();return}else view='hub';render()};
+  $('#pf').onclick=profile;
+  ({hub:vHub,chat:vChat,notes:vNotes,note:vNote,deeds:vDeeds,album:vAlbum,learn:vLearn,calendar:vCal,play:vPlay,gonni:vGonni}[view]||vHub)();
+}
+function sheet(html,mount){closeSheet();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div class="sheet">'+html+'</div>';m.onclick=e=>{if(e.target===m)closeSheet()};document.body.appendChild(m);mount&&mount(m)}
+function closeSheet(){const m=$('#modal');if(m)m.remove()}
+const ago=t=>{const d=new Date(t);return d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})};
+const nextOcc=e=>{const t=new Date();t.setHours(0,0,0,0);let d=new Date(e.date+'T00:00:00');if(e.yearly){d.setFullYear(t.getFullYear());if(d<t)d.setFullYear(t.getFullYear()+1)}return Math.round((d-t)/864e5)};
+
+/* ---------- hub ---------- */
+function vHub(){
+  const ev=S.events.map(e=>({...e,n:nextOcc(e)})).filter(e=>e.n>=0).sort((a,b)=>a.n-b.n)[0];
+  const T=[['play','🎮','Play Zone','#8b6cf6'],['chat','💬','Chat','#ff7aa2'],['notes','📝','Our Notes','#2bb8ae'],['deeds','⭐','Good Deeds','#f7b731'],['album','📸','Album','#ef7d57'],['learn','📚','Learning','#4c9be8'],['calendar','🎂','Special Days','#e0679c'],['gonni','🧹','Mama Gonni','#6b4fa0']];
+  const total=S.board.reduce((a,b)=>a+b.pts,0);
+  $('#main').innerHTML=`<div class="card row"><div style="font-size:30px">👋</div><div style="flex:1"><b>Assalamu alaikum, ${esc(me.name)}!</b><div class="sub">${S.online.length} cousin${S.online.length==1?'':'s'} online · family stars: ${total} ⭐</div></div></div>
+  <div class="row wrap" style="margin-bottom:10px">${S.users.map(u=>av(u.id)).join('')}</div>
+  ${ev?`<div class="card" onclick="go('calendar')" style="background:#fff0f6">${ev.type==='birthday'?'🎂':ev.type==='eid'?'🌙':'🏠'} <b>${esc(ev.title)}</b> — ${ev.n===0?'<b>TODAY! 🎉</b>':ev.n===1?'tomorrow':'in '+ev.n+' days'}</div>`:''}
+  <div class="tiles">${T.map(t=>`<div class="tile" style="background:${t[3]}" onclick="go('${t[0]}')"><b>${t[1]}</b>${t[2]}${t[0]==='chat'&&S.unread?`<span class="badge">${S.unread}</span>`:''}</div>`).join('')}</div>`;
+}
+
+/* ---------- chat ---------- */
+const STK=['MashaAllah ✨','JazakAllah Khair 💛','InshaAllah','Assalamu alaikum 👋','Ameen 🤲','Let\'s play! 🎮','😂','❤️','🌙'];
+function vChat(){
+  $('#main').innerHTML=`<div id="msgs"></div><div class="sub" id="typ" style="height:18px"></div><div class="stk">${STK.map(s=>`<button class="sm" data-s="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+  <div class="row"><input id="ci" maxlength="400" placeholder="Write a kind message…" autocomplete="off"><button class="pri" id="cs">Send</button></div>`;
+  paintChat();
+  const sendIt=()=>{const v=$('#ci').value.trim();if(v){send({t:'chat',text:v});$('#ci').value=''}};
+  $('#cs').onclick=sendIt;let lt=0;$('#ci').oninput=()=>{if(Date.now()-lt>1500){lt=Date.now();send({t:'typing'})}};$('#ci').onkeydown=e=>{if(e.key==='Enter')sendIt()};
+  document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>send({t:'chat',text:b.dataset.s}));
+}
+function msgHtml(m){const mine=m.user===me.id;return `<div class="m ${mine?'me':''}" data-id="${m.id}">${av(m.user,'sm')}<div class="bub"><small>${esc(U(m.user).name)} · ${ago(m.created)}${mine||me.role==='admin'?` <a data-del="${m.id}" style="cursor:pointer">✕</a>`:''}</small>${esc(m.text)}</div></div>`}
+function paintChat(){const el=$('#msgs');if(!el)return;el.innerHTML=S.chat.length?S.chat.map(msgHtml).join(''):'<div class="sub" style="text-align:center;margin-top:40px">No messages yet. Say Assalamu alaikum! 👋</div>';el.scrollTop=el.scrollHeight;bindDel()}
+function addMsg(m){const el=$('#msgs');if(!el)return;if(!S.chat.length||el.querySelector('.sub'))return paintChat();el.insertAdjacentHTML('beforeend',msgHtml(m));el.scrollTop=el.scrollHeight;bindDel()}
+function bindDel(){document.querySelectorAll('[data-del]').forEach(a=>a.onclick=()=>send({t:'chat:del',id:+a.dataset.del}))}
+function paintTyping(){const el=$('#typ');if(!el)return;const n=Object.entries(S.typing).filter(([u,t])=>+u!==me.id&&Date.now()-t<3000).map(([u])=>U(+u).name);el.textContent=n.length?n.join(', ')+' is typing…':'';setTimeout(paintTyping,3200)}
+
+/* ---------- notes ---------- */
+function vNotes(){
+  $('#main').innerHTML=`<button class="pri" id="nn" style="width:100%;margin-bottom:10px">＋ New note</button>`+(S.notes.length?S.notes.map(n=>`<div class="card" data-n="${n.id}"><div class="row sp"><b>${esc(n.title)}</b>${S.locks[n.id]&&S.locks[n.id]!==me.id?`<span class="pill">✍️ ${esc(U(S.locks[n.id]).name)}</span>`:''}</div><div class="sub">${esc((n.body||'').slice(0,90))||'Empty note'}</div><div class="sub" style="margin-top:4px">Last edit: ${esc(U(n.by).name)}</div></div>`).join(''):'<div class="sub" style="text-align:center;margin-top:30px">No notes yet. Start one together! ✍️</div>');
+  $('#nn').onclick=()=>sheet(`<h3>New note</h3><input id="nt" maxlength="60" placeholder="Title (e.g. Eid plans)"><div class="row" style="margin-top:12px;justify-content:flex-end"><button onclick="closeSheet()">Cancel</button><button class="pri" id="nok">Create</button></div>`,()=>{$('#nok').onclick=()=>{send({t:'note:new',title:$('#nt').value});closeSheet()}});
+  document.querySelectorAll('[data-n]').forEach(c=>c.onclick=()=>{openNote=+c.dataset.n;view='note';render()});
+}
+let noteDirty=null,hbT=null;
+function vNote(){
+  const n=S.notes.find(x=>x.id===openNote);if(!n){view='notes';return render()}
+  $('#main').innerHTML=`<div id="nb" class="sub" style="min-height:22px"></div><input id="ntt" maxlength="60" value="${esc(n.title)}" style="font-weight:800;margin-bottom:8px"><textarea id="nbody" placeholder="Write together here…">${esc(n.body||'')}</textarea><div class="row sp" style="margin-top:8px"><span class="sub" id="nst"></span><button class="sm" id="ndel">🗑 Delete</button></div>`;
+  const body=$('#nbody'),tt=$('#ntt');
+  const save=()=>{send({t:'note:save',id:openNote,title:tt.value,body:body.value});const st=$('#nst');if(st)st.textContent='Saved ✓'};
+  const edited=()=>{send({t:'note:lock',id:openNote});const st=$('#nst');if(st)st.textContent='Saving…';clearTimeout(noteDirty);noteDirty=setTimeout(save,700);clearInterval(hbT);hbT=setInterval(()=>{if(document.activeElement===body||document.activeElement===tt)send({t:'note:lock',id:openNote});else clearInterval(hbT)},4000)};
+  body.oninput=tt.oninput=edited;
+  const rel=()=>setTimeout(()=>{if(document.activeElement!==body&&document.activeElement!==tt){clearTimeout(noteDirty);save();send({t:'note:unlock',id:openNote});clearInterval(hbT)}},200);
+  body.onblur=tt.onblur=rel;
+  $('#ndel').onclick=()=>sheet(`<h3>Delete this note?</h3><div class="row" style="justify-content:flex-end"><button onclick="closeSheet()">Cancel</button><button class="pri" id="ndy">Delete</button></div>`,()=>$('#ndy').onclick=()=>{send({t:'note:del',id:openNote});closeSheet();view='notes';render()});
+  paintNote();
+}
+function paintNote(){
+  const n=S.notes.find(x=>x.id===openNote);if(!n||!$('#nbody'))return;const l=S.locks[openNote],other=l&&l!==me.id;
+  const body=$('#nbody'),tt=$('#ntt');$('#nb').innerHTML=other?`✍️ <b>${esc(U(l).name)}</b> is writing… you can read along.`:'Tap the text to write. Cousins see it live.';
+  body.readOnly=tt.readOnly=!!other;
+  if(document.activeElement!==body&&document.activeElement!==tt){if(body.value!==(n.body||''))body.value=n.body||'';if(tt.value!==n.title)tt.value=n.title}
+}
+
+/* ---------- deeds ---------- */
+const EMJ=['⭐','🕌','📖','🤲','💛','🧹','🍪','📞','🌱','🐱','🧸','🎁','🙂','🕋','🌙','✏️'];
+function vDeeds(){
+  const rows=(lbTab==='week'?S.week:S.board).slice().sort((a,b)=>b.pts-a.pts),mx=Math.max(1,...rows.map(r=>r.pts));
+  const done=(d,u)=>d.repeat==='once'?S.once.some(x=>x.d===d.id&&x.u===u):S.tdone.some(x=>x.d===d.id&&x.u===u);
+  $('#main').innerHTML=`<div class="card"><div class="row sp"><b>🏆 Star board</b><span class="row"><span class="chip ${lbTab==='week'?'on':''}" data-lb="week">This week</span><span class="chip ${lbTab==='all'?'on':''}" data-lb="all">All time</span></span></div>
+  ${rows.length?rows.map(r=>`<div class="lb">${av(r.u,'sm')}<div style="flex:1"><div class="bar"><i style="width:${r.pts/mx*100}%"></i></div></div><b>${r.pts}⭐</b></div>`).join(''):'<div class="sub">Do a good deed to get the first star!</div>'}</div>
+  <div class="row sp"><h2 style="margin:0">Our good deeds</h2><button class="pri sm" id="dadd">＋ Add</button></div>
+  ${S.deeds.map(d=>{const mine=done(d,me.id),who=(d.repeat==='once'?S.once:S.tdone).filter(x=>x.d===d.id);return `<div class="card"><div class="row"><div style="font-size:32px">${esc(d.emoji)}</div><div style="flex:1"><b>${esc(d.title)}</b><div class="sub">+${d.points}⭐ · ${d.repeat==='daily'?'every day':'one time'}${d.together?' · 👨‍👩‍👧 together':''}</div><div class="row wrap" style="margin-top:4px">${who.map(x=>av(x.u,'sm')).join('')}</div></div><div><button class="${mine?'teal':''}" data-d="${d.id}" data-m="${mine?1:0}">${mine?'✓ Done':'Done?'}</button>${d.by===me.id||me.role==='admin'?`<div style="text-align:right"><a class="sub" style="cursor:pointer" data-x="${d.id}">remove</a></div>`:''}</div></div></div>`}).join('')}`;
+  document.querySelectorAll('[data-lb]').forEach(c=>c.onclick=()=>{lbTab=c.dataset.lb;render()});
+  document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>send({t:+b.dataset.m?'deed:undo':'deed:done',id:+b.dataset.d}));
+  document.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>send({t:'deed:del',id:+b.dataset.x}));
+  $('#dadd').onclick=()=>{let em='⭐',pts=10;sheet(`<h3>New good deed</h3><label>What will we do?</label><input id="dt" maxlength="60" placeholder="e.g. Plant a flower together"><label>Pick a picture</label><div class="row wrap" id="de">${EMJ.map(e=>`<button class="sm" data-e="${e}" style="font-size:22px">${e}</button>`).join('')}</div>
+    <label>Stars</label><div class="row" id="dp">${[5,10,15,20,30].map(p=>`<button class="sm ${p===10?'pri':''}" data-p="${p}">${p}</button>`).join('')}</div>
+    <label>How often?</label><select id="dr"><option value="daily">Every day</option><option value="once">One time only</option></select>
+    <label><input type="checkbox" id="dg" style="width:auto"> Do it together (all cousins)</label>
+    <div class="row" style="justify-content:flex-end;margin-top:12px"><button onclick="closeSheet()">Cancel</button><button class="pri" id="dok">Add</button></div>`,m=>{
+    m.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{em=b.dataset.e;m.querySelectorAll('[data-e]').forEach(x=>x.classList.toggle('pri',x===b))});
+    m.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{pts=+b.dataset.p;m.querySelectorAll('[data-p]').forEach(x=>x.classList.toggle('pri',x===b))});
+    $('#dok').onclick=()=>{const t=$('#dt').value.trim();if(!t)return;send({t:'deed:add',title:t,emoji:em,points:pts,repeat:$('#dr').value,together:$('#dg').checked});closeSheet()}})};
+}
+
+/* ---------- album ---------- */
+function vAlbum(){
+  const albums=['All',...new Set(S.photos.map(p=>p.album))],list=S.photos.filter(p=>album==='All'||p.album===album);
+  $('#main').innerHTML=`<button class="pri" id="padd" style="width:100%;margin-bottom:10px">📸 Add photos</button><div class="row wrap" style="margin-bottom:10px">${albums.map(a=>`<span class="chip ${a===album?'on':''}" data-a="${esc(a)}">${esc(a)}</span>`).join('')}</div>
+  ${list.length?`<div class="grid3">${list.map(p=>`<img class="ph" loading="lazy" data-p="${p.id}" src="/photos/${p.file}?t=${token}">`).join('')}</div>`:'<div class="sub" style="text-align:center;margin-top:30px">No photos yet. Add your first memory! 💛</div>'}`;
+  document.querySelectorAll('[data-a]').forEach(c=>c.onclick=()=>{album=c.dataset.a;render()});
+  document.querySelectorAll('[data-p]').forEach(i=>i.onclick=()=>openPhoto(+i.dataset.p));
+  $('#padd').onclick=()=>sheet(`<h3>Add photos</h3><label>Album name</label><input id="pa" list="pal" maxlength="30" value="${album==='All'?'Everyday':esc(album)}"><datalist id="pal">${albums.filter(a=>a!=='All').map(a=>`<option value="${esc(a)}">`).join('')}</datalist><label>Caption (optional)</label><input id="pc" maxlength="120" placeholder="Say something nice">
+   <div class="sub" id="pst" style="margin:8px 0"></div><div class="row" style="justify-content:flex-end"><button onclick="closeSheet()">Cancel</button><button class="pri" id="ppick">Choose photos</button></div>`,()=>{$('#ppick').onclick=()=>$('#fph').click()});
+}
+$('#fph').onchange=async e=>{
+  const files=[...e.target.files];e.target.value='';let n=0;
+  for(const f of files){try{
+    const b=await shrink(f);const al=encodeURIComponent(($('#pa')||{}).value||'Everyday'),cp=encodeURIComponent(($('#pc')||{}).value||'');
+    if($('#pst'))$('#pst').textContent='Uploading '+(++n)+' of '+files.length+'…';
+    const r=await fetch('/api/photos?album='+al+'&caption='+cp,{method:'POST',headers:{'x-token':token,'content-type':'image/jpeg'},body:b});if(!r.ok)throw 0}catch(x){toast('A photo could not be uploaded')}}
+  closeSheet();if(n)toast('Photos added! 📸');
+};
+function shrink(f){return new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const s=Math.min(1,1280/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);c.toBlob(b=>b?ok(b):no(),'image/jpeg',.82)};im.onerror=no;im.src=URL.createObjectURL(f)})}
+function openPhoto(id){
+  const list=S.photos.filter(p=>album==='All'||p.album===album);let i=list.findIndex(p=>p.id===id);
+  const show=()=>{const p=list[i];if(!p)return closeSheet();const liked=p.likes.includes(me.id);
+    sheet(`<div class="row sp"><div class="row">${av(p.user,'sm')}<b>${esc(U(p.user).name)}</b><span class="sub">${esc(p.album)}</span></div><button class="ghost" onclick="closeSheet()">✕</button></div>
+    <img src="/photos/${p.file}?t=${token}" style="width:100%;border-radius:14px;margin:8px 0;max-height:60vh;object-fit:contain;background:#000">${p.caption?`<div>${esc(p.caption)}</div>`:''}
+    <div class="row sp" style="margin-top:8px"><button id="pl" class="${liked?'pri':''}">❤ ${p.likes.length}</button><span class="row"><button id="pp" ${i<=0?'disabled':''}>‹</button><button id="pn" ${i>=list.length-1?'disabled':''}>›</button></span>${p.user===me.id||me.role==='admin'?'<button id="pd">🗑</button>':''}</div>`,()=>{
+      $('#pl').onclick=()=>{send({t:'photo:like',id:p.id});setTimeout(()=>{const np=S.photos.find(x=>x.id===p.id);list[i]=np||p;show()},250)};
+      $('#pp').onclick=()=>{i--;show()};$('#pn').onclick=()=>{i++;show()};
+      if($('#pd'))$('#pd').onclick=()=>{send({t:'photo:del',id:p.id});closeSheet()}})};
+  show();
+}
+
+/* ---------- calendar ---------- */
+function vCal(){
+  const l=S.events.map(e=>({...e,n:nextOcc(e)})).sort((a,b)=>(a.n<0)-(b.n<0)||a.n-b.n);
+  $('#main').innerHTML=`<button class="pri" id="eadd" style="width:100%;margin-bottom:10px">＋ Add a special day</button>`+(l.length?l.map(e=>`<div class="card row"><div style="font-size:32px">${e.type==='birthday'?'🎂':e.type==='eid'?'🌙':e.type==='gathering'?'🏠':'📅'}</div><div style="flex:1"><b>${esc(e.title)}</b><div class="sub">${esc(e.date)}${e.yearly?' · every year':''}</div></div><div style="text-align:right"><b>${e.n===0?'Today! 🎉':e.n<0?'passed':e.n+' days'}</b>${e.by===me.id||me.role==='admin'?`<div><a class="sub" data-x="${e.id}" style="cursor:pointer">remove</a></div>`:''}</div></div>`).join(''):'<div class="sub" style="text-align:center;margin-top:30px">Add birthdays, Eid and family gatherings 🎉</div>');
+  document.querySelectorAll('[data-x]').forEach(a=>a.onclick=()=>send({t:'event:del',id:+a.dataset.x}));
+  $('#eadd').onclick=()=>sheet(`<h3>New special day</h3><label>Title</label><input id="et" maxlength="60" placeholder="e.g. Aisha's birthday"><label>Date</label><input id="ed" type="date"><label>Type</label><select id="ety"><option value="birthday">🎂 Birthday</option><option value="eid">🌙 Eid / Islamic day</option><option value="gathering">🏠 Gathering</option><option value="other">📅 Other</option></select>
+   <label><input type="checkbox" id="ey" checked style="width:auto"> Repeat every year</label><div class="row" style="justify-content:flex-end;margin-top:12px"><button onclick="closeSheet()">Cancel</button><button class="pri" id="eok">Add</button></div>`,()=>$('#eok').onclick=()=>{const t=$('#et').value.trim(),d=$('#ed').value;if(!t||!d)return;send({t:'event:add',title:t,date:d,type:$('#ety').value,yearly:$('#ey').checked});closeSheet()});
+}
+
+/* ---------- Mama Gonni page ---------- */
+function vGonni(){
+  $('#main').innerHTML=`<div class="card" style="text-align:center"><div style="margin:-20px 0 -30px">${GONNI_SVG.replace('class="br"','')}</div><h2 style="margin:0">Mama Gonni</h2><div class="sub">The mysterious lady with the broom 🧹</div></div>
+  <div class="card"><b>Mama Gonni's rules</b><ul style="padding-left:20px;margin:8px 0"><li>Speak kindly — rude words make her appear!</li><li>Wrong PIN or wrong answers? Swish! 🧹</li><li>Do your good deeds — she loves tidy, kind cousins.</li><li>In the Chase game she runs after everybody. Don't let her bonk you!</li></ul><div class="sub">She is only playful. Nobody gets hurt in Cousin Heaven. 💛</div></div>
+  <button class="pri" style="width:100%" id="gcall">Call Mama Gonni 🧹</button>`;
+  $('#gcall').onclick=()=>gonni('boo');
+}
+
+/* ---------- profile ---------- */
+const AVS=['👧','🧕','👦','🧑','🐱','🦋','🌸','🌟','🦄','🐼','🦁','🐰'],COLS=['#ff7aa2','#ffb347','#4ecdc4','#6c8cff','#a78bfa','#7bd88f','#ff6b6b','#f7c948'];
+function profile(){
+  let a=me.avatar,c=me.color;
+  const adminHtml=me.role==='admin'?`<h3 style="margin-top:16px">👑 Parent panel</h3><label>Family code (share it only with family)</label><div class="row"><input id="fc" value="${esc(S.code||'')}"><button id="fcs">Save</button></div>
+   <label>Members</label>${S.users.map(u=>`<div class="row" style="margin:6px 0">${av(u.id,'sm')}<div style="flex:1"><b>${esc(u.name)}</b> <span class="sub">${u.role==='admin'?'parent':''}</span></div>${u.id!==me.id?`<button class="sm" data-pin="${u.id}">New PIN</button><button class="sm" data-rm="${u.id}">Remove</button>`:''}</div>`).join('')}
+   <button class="sm" id="cc" style="margin-top:8px">Clear all chat messages</button>`:'';
+  sheet(`<div class="row sp"><h3 style="margin:0">${esc(me.name)}</h3><button class="ghost" onclick="closeSheet()">✕</button></div><label>My picture</label><div class="row wrap" id="pa">${AVS.map(x=>`<button class="sm" data-a="${x}" style="font-size:24px">${x}</button>`).join('')}</div>
+   <label>My color</label><div class="row wrap" id="pcl">${COLS.map(x=>`<button class="sm" data-c="${x}" style="background:${x};width:34px;height:34px;border-radius:50%"></button>`).join('')}</div>
+   ${adminHtml}<div class="row" style="margin-top:16px"><button class="pri" id="psave">Save</button><button id="plogout">Log out</button>${IN_APK?'<button id="psrv">Change server</button>':''}</div>`,m=>{
+    m.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{a=b.dataset.a;m.querySelectorAll('[data-a]').forEach(x=>x.classList.toggle('pri',x===b))});
+    m.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{c=b.dataset.c;m.querySelectorAll('[data-c]').forEach(x=>x.style.outline=x===b?'3px solid #3b2a4a':'')});
+    $('#psave').onclick=()=>{send({t:'profile',avatar:a,color:c});closeSheet()};
+    $('#plogout').onclick=()=>{token=null;try{localStorage.removeItem('cousin_token')}catch(e){}if(ws)ws.close();closeSheet();me=null;login()};
+    if($('#psrv'))$('#psrv').onclick=()=>Android.resetServer();
+    if($('#fcs'))$('#fcs').onclick=()=>send({t:'admin:code',code:$('#fc').value});
+    if($('#cc'))$('#cc').onclick=()=>{send({t:'chat:clear'});toast('Chat cleared')};
+    m.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{send({t:'admin:remove',id:+b.dataset.rm});b.parentNode.remove()});
+    m.querySelectorAll('[data-pin]').forEach(b=>b.onclick=()=>sheet(`<h3>New PIN for ${esc(U(+b.dataset.pin).name)}</h3><input id="np" type="password" inputmode="numeric" maxlength="4" placeholder="4 numbers"><div class="row" style="margin-top:10px;justify-content:flex-end"><button onclick="closeSheet()">Cancel</button><button class="pri" id="npok">Save</button></div>`,()=>$('#npok').onclick=()=>{send({t:'admin:pin',id:+b.dataset.pin,pin:$('#np').value});closeSheet()}));
+  });
+}
+
+/* ---------- learn ---------- */
+const LETTERS=[['ا','Alif'],['ب','Baa'],['ت','Taa'],['ث','Thaa'],['ج','Jeem'],['ح','Haa'],['خ','Khaa'],['د','Daal'],['ذ','Dhaal'],['ر','Raa'],['ز','Zaay'],['س','Seen'],['ش','Sheen'],['ص','Saad'],['ض','Daad'],['ط','Taa (heavy)'],['ظ','Zaa (heavy)'],['ع','‘Ayn'],['غ','Ghayn'],['ف','Faa'],['ق','Qaaf'],['ك','Kaaf'],['ل','Laam'],['م','Meem'],['ن','Noon'],['ه','Haa (soft)'],['و','Waaw'],['ي','Yaa']];
+const LEARN={
+ pillars:{t:'🕌 Five Pillars of Islam',l:['1. Shahada — saying there is no god but Allah and Muhammad ﷺ is His messenger','2. Salah — praying five times every day','3. Zakat — giving a part of our wealth to people in need','4. Sawm — fasting in the month of Ramadan','5. Hajj — visiting the Kaaba in Makkah, for those who are able']},
+ iman:{t:'💛 Six Pillars of Iman (faith)',l:['1. Believe in Allah','2. Believe in His angels','3. Believe in His books','4. Believe in His messengers','5. Believe in the Last Day','6. Believe that everything good and bad happens by Allah’s decree (Qadar)']},
+ wudu:{t:'💧 How to make Wudu',l:['1. Make the intention in your heart and say Bismillah','2. Wash both hands up to the wrists — 3 times','3. Rinse your mouth — 3 times','4. Sniff water into your nose and blow it out — 3 times','5. Wash your whole face — 3 times','6. Wash your right arm up to the elbow, then the left — 3 times each','7. Wipe your head once with wet hands, and wipe your ears','8. Wash your right foot up to the ankle, then the left — 3 times each']},
+ salah:{t:'🤲 The five prayers (fard rakats)',l:['Fajr (dawn) — 2 rakats','Dhuhr (noon) — 4 rakats','Asr (afternoon) — 4 rakats','Maghrib (sunset) — 3 rakats','Isha (night) — 4 rakats','Steps in a rakat: stand and say Allahu Akbar → recite Al-Fatiha and a surah → ruku (bow) → stand → sujud (prostrate) → sit → second sujud. At the end: Tashahhud and Salam.']},
+};
+const DUAS=[
+ ['Waking up','الْحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ','Alhamdu lillahil-ladhi ahyana ba‘da ma amatana wa ilayhin-nushur','All praise is for Allah who gave us life after death, and to Him is the return.'],
+ ['Before sleeping','بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا','Bismika Allahumma amutu wa ahya','In Your name, O Allah, I die and I live.'],
+ ['Before eating','بِسْمِ اللَّهِ','Bismillah','In the name of Allah.'],
+ ['After eating','الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنَا وَسَقَانَا وَجَعَلَنَا مُسْلِمِينَ','Alhamdu lillahil-ladhi at‘amana wa saqana wa ja‘alana muslimin','All praise is for Allah who fed us, gave us drink, and made us Muslims.'],
+ ['Leaving home','بِسْمِ اللَّهِ تَوَكَّلْتُ عَلَى اللَّهِ وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ','Bismillah, tawakkaltu ‘alallah, wa la hawla wa la quwwata illa billah','In the name of Allah, I trust in Allah; there is no power or strength except with Allah.'],
+ ['Entering the masjid','اللَّهُمَّ افْتَحْ لِي أَبْوَابَ رَحْمَتِكَ','Allahumma iftah li abwaba rahmatik','O Allah, open for me the doors of Your mercy.'],
+ ['Leaving the masjid','اللَّهُمَّ إِنِّي أَسْأَلُكَ مِنْ فَضْلِكَ','Allahumma inni as’aluka min fadlik','O Allah, I ask You for Your bounty.'],
+ ['For knowledge','رَبِّ زِدْنِي عِلْمًا','Rabbi zidni ‘ilma','My Lord, increase me in knowledge. (Quran 20:114)'],
+ ['For parents','رَبِّ ارْحَمْهُمَا كَمَا رَبَّيَانِي صَغِيرًا','Rabbir-hamhuma kama rabbayani saghira','My Lord, have mercy on them as they raised me when I was small. (Quran 17:24)'],
+];
+const SURAHS=[
+ ['Al-Fatiha',['بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ','الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ','الرَّحْمَٰنِ الرَّحِيمِ','مَالِكِ يَوْمِ الدِّينِ','إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ','اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ','صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ']],
+ ['Al-Ikhlas',['قُلْ هُوَ اللَّهُ أَحَدٌ','اللَّهُ الصَّمَدُ','لَمْ يَلِدْ وَلَمْ يُولَدْ','وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ']],
+ ['Al-Falaq',['قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ','مِن شَرِّ مَا خَلَقَ','وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ','وَمِن شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ','وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ']],
+ ['An-Nas',['قُلْ أَعُوذُ بِرَبِّ النَّاسِ','مَلِكِ النَّاسِ','إِلَٰهِ النَّاسِ','مِن شَرِّ الْوَسْوَاسِ الْخَنَّاسِ','الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ','مِنَ الْجِنَّةِ وَالنَّاسِ']],
+];
+let learnTab=null;
+function vLearn(){
+  if(!learnTab){
+    $('#main').innerHTML=`<div class="tiles">${[['letters','🔤','Arabic letters','#4c9be8'],['duas','🤲','Daily duas','#2bb8ae'],['surahs','📖','Short surahs','#8b6cf6'],['wudu','💧','Wudu steps','#4c9be8'],['salah','🕌','Salah guide','#ef7d57'],['pillars','🧱','5 Pillars','#e0679c'],['iman','💛','6 Pillars of Iman','#f7b731'],['quiz','🎯','Practice quiz','#6b4fa0']].map(t=>`<div class="tile" style="background:${t[3]}" data-l="${t[0]}"><b>${t[1]}</b>${t[2]}</div>`).join('')}</div><div class="sub" style="margin-top:12px;text-align:center">Parents: please check recitation with a qualified teacher. 💛</div>`;
+    document.querySelectorAll('[data-l]').forEach(t=>t.onclick=()=>{if(t.dataset.l==='quiz'){go('play');return}learnTab=t.dataset.l;vLearn()});return}
+  const back=`<button class="sm" id="lb" style="margin-bottom:10px">‹ Learning</button>`;let h='';
+  if(learnTab==='letters')h=`<div class="sub" style="margin-bottom:8px">Tap a letter to see its name. Say it out loud with a parent!</div><div class="grid3">${LETTERS.map(l=>`<div class="card letter" data-lt="${l[1]}" style="margin:0;cursor:pointer">${l[0]}<div class="sub" style="font-family:system-ui;direction:ltr;min-height:20px"></div></div>`).join('')}</div>`;
+  else if(learnTab==='duas')h=DUAS.map(d=>`<div class="card"><b>${esc(d[0])}</b><div class="ar">${d[1]}</div><div><i>${esc(d[2])}</i></div><div class="sub">${esc(d[3])}</div></div>`).join('');
+  else if(learnTab==='surahs')h=SURAHS.map(s=>`<div class="card"><b>${s[0]}</b>${s[1].map((v,i)=>`<div class="ar">${v} <span class="sub">﴿${i+1}﴾</span></div>`).join('')}</div>`).join('');
+  else{const L=LEARN[learnTab];h=`<div class="card"><b>${L.t}</b>${L.l.map(x=>`<p style="margin:8px 0">${esc(x)}</p>`).join('')}</div>`}
+  $('#main').innerHTML=back+h;$('#lb').onclick=()=>{learnTab=null;vLearn()};
+  document.querySelectorAll('[data-lt]').forEach(c=>c.onclick=()=>{c.querySelector('.sub').textContent=c.dataset.lt});
+}
+
+/* ---------- play zone ---------- */
+const GINFO={quiz:['🎯','Quiz Race','Answer Islamic questions faster than your cousins!'],memory:['🧠','Memory Match','Take turns finding matching pairs.'],dots:['🔷','Dots & Boxes','Draw lines and close boxes to win them.'],scramble:['🔤','Word Scramble','Unscramble Islamic words. Fastest wins!'],chase:['🧹','Mama Gonni Chase','Collect stars and run from Mama Gonni’s broom! (live)']};
+function vPlay(){
+  if(S.room){renderRoom(null);return}
+  const open=S.rooms.filter(r=>r.state==='lobby');
+  $('#main').innerHTML=`<div class="sub" style="margin-bottom:8px">All games are for 2–4 cousins and are free of chance-devices — just skill and fun. 🌟</div>
+  ${open.length?`<h2>Open rooms — join now!</h2>${open.map(r=>`<div class="card row"><div style="font-size:30px">${GINFO[r.game][0]}</div><div style="flex:1"><b>${GINFO[r.game][1]}</b><div class="sub">${esc(U(r.host).name)}'s room · ${r.count}/${r.max}</div></div><button class="teal" data-j="${r.id}" ${r.count>=r.max?'disabled':''}>Join</button></div>`).join('')}`:''}
+  <h2>Start a game</h2>${Object.keys(GINFO).map(g=>`<div class="card gc"><b class="e">${GINFO[g][0]}</b><div style="flex:1"><b>${GINFO[g][1]}</b><div class="sub">${GINFO[g][2]}</div><div class="sub">${(S.games[g]||{}).min||2}–${(S.games[g]||{}).max||4} players</div></div><button class="pri" data-c="${g}">Create</button></div>`).join('')}`;
+  document.querySelectorAll('[data-j]').forEach(b=>b.onclick=()=>send({t:'g:join',id:b.dataset.j}));
+  document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>send({t:'g:create',game:b.dataset.c}));
+}
+function leaveRoom(){const r=S.room;if(r&&r.state==='playing'){sheet(`<h3>Leave the game?</h3><div class="sub">Mama Gonni will chase you out! 🧹</div><div class="row" style="justify-content:flex-end;margin-top:10px"><button onclick="closeSheet()">Stay</button><button class="pri" id="lyes">Leave</button></div>`,()=>$('#lyes').onclick=()=>{closeSheet();gonni('left');send({t:'g:leave'})});return}send({t:'g:leave'})}
+function scoreBar(r,turn){return `<div class="score" style="margin-bottom:10px">${r.players.map(p=>`<div class="card ${turn===p?'turn':''}">${av(p,'sm')}<div class="sub">${esc(U(p).name)}</div><b>${r.scores[p]||0}</b></div>`).join('')}</div>`}
+function renderRoom(prev){
+  const r=S.room;if(!r){render();return}
+  if(view!=='play')return;
+  const same=prev&&prev.game===r.game&&prev.state===r.state&&r.state==='playing';
+  if(r.state==='lobby'||r.state==='over'){
+    $('#main').innerHTML=`<div class="card" style="text-align:center"><div style="font-size:50px">${GINFO[r.game][0]}</div><h2 style="margin:4px 0">${GINFO[r.game][1]}</h2><div class="sub">${GINFO[r.game][2]}</div></div>
+    ${r.state==='over'?`<div class="card" style="text-align:center;background:#fff7d6"><h2 style="margin:0">${esc(r.msg||'Game over!')}</h2></div>${scoreBar(r)}`:''}
+    <div class="card"><b>Players (${r.players.length}/${r.max})</b><div class="row wrap" style="margin-top:8px">${r.players.map(p=>`<div style="text-align:center">${av(p,'lg')}<div class="sub">${esc(U(p).name)}${p===r.host?' 👑':''}</div></div>`).join('')}</div></div>
+    ${r.host===me.id?`<button class="pri" id="gs" style="width:100%;font-size:18px" ${r.players.length<r.min&&r.state==='lobby'?'disabled':''}>${r.state==='over'?'Play again':'Start game'}</button>${r.players.length<r.min&&r.state==='lobby'?`<div class="sub" style="text-align:center;margin-top:6px">Waiting for more cousins… (need ${r.min})</div>`:''}`:`<div class="sub" style="text-align:center">${r.state==='over'?'Waiting for the host to restart…':'Waiting for the host to start…'}</div>`}
+    <button style="width:100%;margin-top:10px" id="gl">Leave room</button>`;
+    if($('#gs'))$('#gs').onclick=()=>send({t:r.state==='over'?'g:again':'g:start'});
+    $('#gl').onclick=()=>send({t:'g:leave'});
+    return}
+  ({quiz:gQuiz,memory:gMemory,dots:gDots,scramble:gScramble,chase:gChase}[r.game])(r,same);
+}
+let qT=null;
+function gQuiz(r){
+  const q=r.q;if(!q||!q.text)return;const mine=q.mine;
+  $('#main').innerHTML=`${scoreBar(r)}<div class="card"><div class="row sp"><span class="pill">Question ${q.i+1}/${q.n}</span><span class="pill" id="qt">⏱ ${q.left}</span></div><h2 style="font-size:20px">${esc(q.text)}</h2>
+  ${q.opts.map((o,i)=>`<button class="opt ${q.reveal?(i===q.correct?'ok':(mine===i?'bad':'')):(mine===i?'mine':'')}" data-o="${i}" ${mine>=0||q.reveal?'disabled':''}>${esc(o)} ${q.reveal?Object.entries(q.picks||{}).filter(([u,c])=>c===i).map(([u])=>U(+u).avatar).join(''):''}</button>`).join('')}
+  <div class="sub">${q.reveal?(mine===q.correct?'✅ Correct!':mine>=0?'❌ Not this time':'⏰ Time is up'):mine>=0?'Waiting for cousins… ('+q.answered.length+'/'+r.players.length+')':'Pick your answer!'}</div></div><button class="sm" id="gl">Leave</button>`;
+  document.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>send({t:'g:act',a:'ans',c:+b.dataset.o}));$('#gl').onclick=leaveRoom;
+  clearInterval(qT);if(!q.reveal){let l=q.left;qT=setInterval(()=>{l--;const e=$('#qt');if(e)e.textContent='⏱ '+Math.max(0,l);if(l<=0)clearInterval(qT)},1000)}
+  else if(mine!==q.correct&&Math.random()<.4)gonni('wrong');
+}
+function gMemory(r){
+  const m=r.m;$('#main').innerHTML=`${scoreBar(r,m.turn)}<div class="sub" style="text-align:center;margin-bottom:8px">${m.turn===me.id?'<b>Your turn!</b> Flip two cards.':esc(U(m.turn).name)+'\'s turn…'}</div><div class="mem">${m.cards.map((c,i)=>`<button class="mc ${m.matched[i]?'got':c?'up':''}" data-i="${i}">${c||'?'}</button>`).join('')}</div><button class="sm" id="gl" style="margin-top:12px">Leave</button>`;
+  document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>send({t:'g:act',a:'flip',i:+b.dataset.i}));$('#gl').onclick=leaveRoom;
+}
+function gDots(r){
+  const d=r.dt,P=50,O=25;let s='';
+  for(let i=0;i<5;i++)for(let j=0;j<5;j++){const o=d.box[i][j];if(o!==-1)s+=`<rect x="${O+j*P+3}" y="${O+i*P+3}" width="${P-6}" height="${P-6}" rx="6" fill="${U(o).color}" opacity=".85"/><text x="${O+j*P+P/2}" y="${O+i*P+P/2+7}" font-size="20" text-anchor="middle">${U(o).avatar}</text>`}
+  const edge=(k,i,j)=>{const taken=(k==='h'?d.h:d.v)[i][j],x1=O+j*P,y1=O+i*P,x2=k==='h'?x1+P:x1,y2=k==='h'?y1:y1+P;return taken!==-1?`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${U(taken).color}" stroke-width="6" stroke-linecap="round"/>`:`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#e5d8c0" stroke-width="3" stroke-linecap="round"/><line data-k="${k}" data-r="${i}" data-c="${j}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="22" style="cursor:pointer"/>`};
+  for(let i=0;i<6;i++)for(let j=0;j<5;j++)s+=edge('h',i,j);for(let i=0;i<5;i++)for(let j=0;j<6;j++)s+=edge('v',i,j);
+  for(let i=0;i<6;i++)for(let j=0;j<6;j++)s+=`<circle cx="${O+j*P}" cy="${O+i*P}" r="5" fill="#3b2a4a"/>`;
+  $('#main').innerHTML=`${scoreBar(r,d.turn)}<div class="sub" style="text-align:center;margin-bottom:6px">${d.turn===me.id?'<b>Your turn!</b> Tap a line.':esc(U(d.turn).name)+'\'s turn…'}</div><div class="card"><svg viewBox="0 0 300 300" style="width:100%">${s}</svg></div><button class="sm" id="gl">Leave</button>`;
+  document.querySelectorAll('[data-k]').forEach(l=>l.onclick=()=>send({t:'g:act',a:'edge',k:l.dataset.k,r:+l.dataset.r,c:+l.dataset.c}));$('#gl').onclick=leaveRoom;
+}
+function gScramble(r){
+  const s=r.s;$('#main').innerHTML=`${scoreBar(r)}<div class="card" style="text-align:center"><div class="row sp"><span class="pill">Word ${s.i+1}/${s.n}</span><span class="pill" id="qt">⏱ ${s.left}</span></div>
+  <div style="margin:12px 0">${(s.reveal?s.answer.split(''):s.letters).map(l=>`<span class="tile2">${l}</span>`).join('')}</div><div><b>${esc(s.clue)}</b></div><div class="sub">${esc(s.hint)}</div>
+  ${s.reveal?`<h2>${s.solver?U(s.solver).avatar+' '+esc(U(s.solver).name)+' got it! 🎉':'⏰ Time is up!'}</h2>`:`<div class="row" style="margin-top:10px"><input id="guess" autocomplete="off" autocapitalize="characters" placeholder="Type the word"><button class="pri" id="gg">Go</button></div>`}</div><button class="sm" id="gl">Leave</button>`;
+  const g=()=>{const v=$('#guess').value.trim();if(v){send({t:'g:act',a:'guess',w:v});$('#guess').value=''}};
+  if($('#gg')){$('#gg').onclick=g;$('#guess').onkeydown=e=>{if(e.key==='Enter')g()};if(document.hasFocus())$('#guess').focus()}$('#gl').onclick=leaveRoom;
+  clearInterval(qT);if(!s.reveal){let l=s.left;qT=setInterval(()=>{l--;const e=$('#qt');if(e)e.textContent='⏱ '+Math.max(0,l);if(l<=0)clearInterval(qT)},1000)}
+}
+let cv=null,cx=null,lastMove=0;
+function gChase(r,same){
+  if(same&&cv&&document.body.contains(cv))return;
+  $('#main').innerHTML=`<div class="row sp" style="margin-bottom:6px"><b id="ct">⏱ 60</b><div class="score" id="csc"></div></div><canvas id="cv" width="800" height="480"></canvas><div class="sub" style="text-align:center;margin:6px 0">Drag or tap anywhere to run. Grab ⭐ stars. Dodge Mama Gonni! 🧹</div><button class="sm" id="gl">Leave</button>`;
+  cv=$('#cv');cx=cv.getContext('2d');$('#gl').onclick=leaveRoom;
+  const pt=e=>{const b=cv.getBoundingClientRect();return {x:(e.clientX-b.left)*800/b.width,y:(e.clientY-b.top)*480/b.height}};
+  let down=false;const mv=e=>{if(Date.now()-lastMove<50)return;lastMove=Date.now();const p=pt(e);send({t:'g:act',a:'move',x:p.x,y:p.y})};
+  cv.onpointerdown=e=>{down=true;cv.setPointerCapture(e.pointerId);lastMove=0;mv(e)};cv.onpointermove=e=>{if(down)mv(e)};cv.onpointerup=()=>down=false;
+  drawChase();
+}
+function drawChase(){
+  if(!cx||!document.body.contains(cv))return;const s=S.cs;cx.clearRect(0,0,800,480);cx.fillStyle='#fff7e6';cx.fillRect(0,0,800,480);
+  cx.fillStyle='#ffe9b8';for(let i=0;i<10;i++)for(let j=0;j<6;j++)if((i+j)%2==0)cx.fillRect(i*80,j*80,80,80);
+  if(!s){cx.fillStyle='#3b2a4a';cx.font='bold 30px system-ui';cx.textAlign='center';cx.fillText('Get ready…',400,240);return}
+  cx.textAlign='center';cx.textBaseline='middle';cx.font='30px system-ui';s.st.forEach(p=>cx.fillText('⭐',p[0],p[1]));
+  for(const [id,p] of Object.entries(s.p)){const u=U(+id);cx.fillStyle=u.color;cx.beginPath();cx.arc(p[0],p[1],22,0,7);cx.fill();cx.lineWidth=3;cx.strokeStyle=+id===me.id?'#3b2a4a':'#fff';cx.stroke();cx.font='24px system-ui';cx.fillText(u.avatar,p[0],p[1]+1);if(p[2]){cx.font='22px system-ui';cx.fillText('💫',p[0],p[1]-30)}cx.font='bold 13px system-ui';cx.fillStyle='#3b2a4a';cx.fillText(u.name+' '+p[3]+'⭐',p[0],p[1]+36)}
+  cx.font='54px system-ui';cx.fillText('👵',s.g[0],s.g[1]);cx.font='34px system-ui';cx.fillText('🧹',s.g[0]+34,s.g[1]+14);
+  const t=$('#ct');if(t)t.textContent='⏱ '+s.left;const sc=$('#csc');if(sc)sc.innerHTML=Object.entries(s.p).map(([id,p])=>`<span class="pill">${U(+id).avatar} ${p[3]}</span>`).join(' ');
+  if(s.hit&&+s.hit===me.id&&!drawChase.t){drawChase.t=1;toast('Bonk! Mama Gonni got you! 💫',1200);setTimeout(()=>drawChase.t=0,1500)}
+}
+connect();
+</script></body></html>
