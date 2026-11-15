@@ -162,7 +162,7 @@ function vHome(){
   <div class="card row" onclick="go('daily')"><div class="big">${tDoneToday()}/${S.targets.length}</div><div><b>Daily targets</b><div class="sub">${S.targets.length?S.targets.map(t=>esc(t.name)).slice(0,3).join(' · '):'Add targets like Quran reading'}</div></div></div>
   <div class="grid">
   <div class="card" onclick="go('debts')"><div class="sub">Debts I owe</div><div class="big" style="color:${owe?'var(--red)':'var(--grn)'}">${money(owe)}</div><div class="sub">${od?od+' overdue':owe?'pay early if you can':'all clear'}</div></div>
-  <div class="card" onclick="go('huquq')"><div class="sub">Rights to settle</div><div class="big" style="color:${pend?'var(--gold)':'var(--grn)'}">${pend}</div><div class="sub">${pend?'people to make right':'none pending'}</div></div></div>
+  <div class="card" onclick="go('huquq')"><div class="sub">Huquq al-Ibad</div><div class="big">🔒</div><div class="sub">Private · tap to open</div></div></div>
   <div class="card row" onclick="go('goals')">${ring(gp)}<div><div class="big" style="font-size:19px">Life goals</div><div class="sub">${S.goals.length} goal${S.goals.length==1?'':'s'} · average progress</div></div></div>
   <div class="ayah">“Every soul will taste death… and you will only be given your full compensation on the Day of Resurrection.” — Qur’an 3:185</div>`}
 
@@ -195,14 +195,32 @@ function payDebt(id){const d=S.debts.find(x=>x.id===id);form('Amount (left '+mon
 
 const HK=[['money','Money / property'],['apology','Apology needed'],['wrong','Backbiting / slander / hurt'],['belong','Belongings to return'],['family','Family / parents / spouse rights'],['other','Other']];
 const HS={pending:['Pending','y'],progress:['In progress','y'],settled:['Settled ✓','g']};
-function vHuquq(){
+function vHuquqOpen(){
   const l=[...S.huquq].sort((a,b)=>(a.status==='settled')-(b.status==='settled'));
   const n=S.huquq.filter(h=>h.status==='settled').length;
-  return `<div class="card"><div class="row sp"><b>${n}/${S.huquq.length} settled</b><span class="sub">Huquq al-Ibad</span></div><div class="bar" style="margin-top:8px"><i style="width:${S.huquq.length?n*100/S.huquq.length:0}%"></i></div><div class="sub" style="margin-top:8px">Rights of people are not forgiven by Allah until the person forgives. List who you may have wronged and what you can do to make it right.</div></div>
+  return `<div class="row sp" style="margin-bottom:10px"><button class="sm" onclick="hqLock()">🔒 Lock now</button><button class="sm" onclick="hqChange()">Change PIN</button></div><div class="card"><div class="row sp"><b>${n}/${S.huquq.length} settled</b><span class="sub">Huquq al-Ibad</span></div><div class="bar" style="margin-top:8px"><i style="width:${S.huquq.length?n*100/S.huquq.length:0}%"></i></div><div class="sub" style="margin-top:8px">Rights of people are not forgiven by Allah until the person forgives. List who you may have wronged and what you can do to make it right.</div></div>
   ${l.length?l.map(h=>`<div class="card" onclick="editHuquq('${h.id}')"><div class="row sp"><b>${esc(h.person)}</b><span class="pill ${HS[h.status][1]}">${HS[h.status][0]}</span></div><div class="sub">${esc((HK.find(k=>k[0]===h.kind)||HK[5])[1])}${h.amount?' · '+money(h.amount):''}</div>${h.desc?`<div style="margin-top:4px">${esc(h.desc)}</div>`:''}${h.plan?`<div class="sub" style="margin-top:4px">Plan: ${esc(h.plan)}</div>`:''}<div class="row" style="margin-top:8px"><button class="sm" onclick="event.stopPropagation();cycH('${h.id}')">${h.status==='settled'?'Reopen':h.status==='pending'?'Start':'Mark settled'}</button></div></div>`).join(''):'<div class="empty">No entries yet. Tap + to add someone you need to make right with.</div>'}`}
 function huForm(h){return [{k:'person',l:'Person',v:h.person,req:1},{k:'kind',l:'Type',t:'sel',o:HK,v:h.kind||'money'},{k:'amount',l:'Amount (if money)',t:'number',v:h.amount||''},{k:'desc',l:'What happened',t:'area',v:h.desc},{k:'plan',l:'How I will make it right',t:'area',v:h.plan}]}
 function addHuquq(){form('New right to settle',huForm({}),o=>{S.huquq.push({id:uid(),status:'pending',...o});save();render()})}
 function editHuquq(id){const h=S.huquq.find(x=>x.id===id);form('Edit',huForm(h),o=>{Object.assign(h,o);save();render()},{del:()=>{S.huquq=S.huquq.filter(x=>x.id!==id);save();render()}})}
+
+/* ---- Huquq PIN lock ---- */
+let hqOpen=false,hqFail=0,hqUntil=0;
+async function sha(s){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=5381;for(const c of s)h=((h<<5)+h+c.charCodeAt(0))>>>0;return 'f'+h}}
+function vHuquq(){
+  if(!S.lock)return `<div class="card" style="text-align:center"><div style="font-size:48px">🔒</div><h2 style="margin:6px 0">Protect this page</h2><div class="sub">Huquq al-Ibad is private. Choose a PIN (4–8 numbers). You will need it every time you open this page.</div>
+  <input id="hp1" type="password" inputmode="numeric" maxlength="8" placeholder="New PIN" style="margin-top:12px"><input id="hp2" type="password" inputmode="numeric" maxlength="8" placeholder="Repeat PIN" style="margin-top:8px"><div class="sub" id="hpe" style="color:var(--red,#e55);margin-top:8px"></div><button class="pri" style="width:100%;margin-top:8px" onclick="hqSetup()">Set PIN</button></div>`;
+  if(!hqOpen)return `<div class="card" style="text-align:center"><div style="font-size:48px">🔒</div><h2 style="margin:6px 0">Huquq al-Ibad is locked</h2><input id="hp1" type="password" inputmode="numeric" maxlength="8" placeholder="Enter PIN" style="margin-top:12px"><div class="sub" id="hpe" style="color:var(--red,#e55);margin-top:8px"></div><button class="pri" style="width:100%;margin-top:8px" onclick="hqUnlock()">Unlock</button><button class="ghost" style="margin-top:8px" onclick="hqForgot()">Forgot PIN?</button></div>`;
+  return vHuquqOpen();
+}
+const hqMsg=t=>{const e=$('#hpe');if(e)e.textContent=t};
+async function hqSetup(){const a=$('#hp1').value,b=$('#hp2').value;if(!/^\d{4,8}$/.test(a))return hqMsg('PIN must be 4 to 8 numbers.');if(a!==b)return hqMsg('The two PINs do not match.');const salt=uid();S.lock={salt,hash:await sha(salt+a)};hqOpen=true;save();render()}
+async function hqUnlock(){const w=hqUntil-Date.now();if(w>0)return hqMsg('Too many tries. Wait '+Math.ceil(w/1000)+' seconds.');const v=$('#hp1').value;if(await sha(S.lock.salt+v)===S.lock.hash){hqOpen=true;hqFail=0;render()}else{hqFail++;if(hqFail>=5){hqFail=0;hqUntil=Date.now()+30000;hqMsg('Too many tries. Wait 30 seconds.')}else hqMsg('Wrong PIN.');$('#hp1').value=''}}
+function hqLock(){hqOpen=false;render()}
+function hqChange(){sheet(`<h2 style="margin-top:0">Change PIN</h2><input id="c0" type="password" inputmode="numeric" maxlength="8" placeholder="Current PIN"><input id="c1" type="password" inputmode="numeric" maxlength="8" placeholder="New PIN (4–8 numbers)" style="margin-top:8px"><input id="c2" type="password" inputmode="numeric" maxlength="8" placeholder="Repeat new PIN" style="margin-top:8px"><div class="sub" id="ce" style="color:var(--red,#e55);margin-top:8px"></div><div class="row" style="margin-top:10px"><button id="cx">Cancel</button><button class="pri" id="cok">Save</button></div>`,()=>{
+  $('#cx').onclick=closeSheet;$('#cok').onclick=async()=>{const e=t=>$('#ce').textContent=t;if(await sha(S.lock.salt+$('#c0').value)!==S.lock.hash)return e('Current PIN is wrong.');const a=$('#c1').value;if(!/^\d{4,8}$/.test(a))return e('New PIN must be 4 to 8 numbers.');if(a!==$('#c2').value)return e('The new PINs do not match.');const salt=uid();S.lock={salt,hash:await sha(salt+a)};save();closeSheet();hqOpen=false;render()}})}
+function hqForgot(){sheet(`<h2 style="margin-top:0">Forgot your PIN?</h2><div class="sub">The only way to reset it is to erase everything in Huquq al-Ibad. Your other data stays. This cannot be undone.</div><div class="row" style="margin-top:12px"><button id="fx">Cancel</button><button class="pri" id="fok">Erase Huquq &amp; reset PIN</button></div>`,()=>{$('#fx').onclick=closeSheet;$('#fok').onclick=()=>{S.huquq=[];delete S.lock;hqOpen=false;save();closeSheet();render()}})}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&hqOpen){hqOpen=false;if(tab==='huquq'&&!view)render()}});
 function cycH(id){const h=S.huquq.find(x=>x.id===id);h.status=h.status==='pending'?'progress':h.status==='progress'?'settled':'pending';save();render()}
 
 const GC=[['deen','Deen'],['family','Family'],['career','Career / wealth'],['health','Health'],['knowledge','Knowledge'],['charity','Charity / sadaqah'],['other','Other']];
@@ -280,13 +298,13 @@ function settings(){sheet(`<h2 style="margin-top:0">Backup & data</h2><div class
     $('#pt').value=data;st('Download unavailable — backup text placed below; copy it and keep it safe.')}})}
 
 /* ---------- shell ---------- */
-function go(t){tab=t;render();scrollTo(0,0)}
+function go(t){if(tab==='huquq'&&t!=='huquq')hqOpen=false;tab=t;render();scrollTo(0,0)}
 function render(){
   if(view)return;
   const T=[['home','🏠','Home'],['salah','🕌','Salah'],['daily','📖','Daily'],['todo','✅','To-do'],['debts','💰','Debts'],['huquq','🤝','Huquq'],['goals','🎯','Goals']];
   const titles={todo:'To-do',daily:'Daily Targets',home:'Life App',salah:'Salah',debts:'Debts',huquq:'Huquq al-Ibad',goals:'Life Goals',goal:'Life Goals'};
   const body={todo:vTodo,daily:vDaily,home:vHome,salah:vSalah,debts:vDebts,huquq:vHuquq,goals:vGoals,goal:vGoal}[tab]();
-  const fab={todo:'addTodo()',daily:'addTarget()',debts:'addDebtMenu()',huquq:'addHuquq()',goals:'addGoal()'}[tab];
+  const fab={todo:'addTodo()',daily:'addTarget()',debts:'addDebtMenu()',huquq:(S.lock&&hqOpen)?'addHuquq()':'',goals:'addGoal()'}[tab];
   $('#app').innerHTML=`<header><div><h1>${titles[tab]}</h1><div class="sub">بسم الله · prepare for the meeting with your Lord</div></div><button class="ghost" onclick="settings()" aria-label="Backup">⚙︎</button></header>${body}${fab?`<button class="pri fab" onclick="${fab}">+</button>`:''}<nav>${T.map(t=>`<button class="${(tab===t[0]||(tab==='goal'&&t[0]==='goals'))?'on':''}" onclick="go('${t[0]}')"><b>${t[1]}</b>${t[2]}</button>`).join('')}</nav>`}
 function addDebtMenu(){sheet(`<h2 style="margin-top:0">Add</h2><div class="row" style="flex-direction:column;align-items:stretch"><button class="pri" id="d1">Debt I owe</button><button id="d2">Money owed to me</button><button id="d3">Cancel</button></div>`,()=>{$('#d1').onclick=()=>{closeSheet();addDebt('owe')};$('#d2').onclick=()=>{closeSheet();addDebt('owed')};$('#d3').onclick=closeSheet})}
 render();initDb();
