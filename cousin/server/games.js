@@ -45,7 +45,6 @@ export const GAMES = {
   memory: { name: 'Memory Match', min: 2, max: 4 },
   dots: { name: 'Dots & Boxes', min: 2, max: 4 },
   scramble: { name: 'Word Scramble', min: 2, max: 6 },
-  chase: { name: 'Mama Gonni Chase', min: 2, max: 4 },
 };
 
 export class Rooms {

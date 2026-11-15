@@ -103,7 +103,7 @@ function handle(c, m) {
   switch (m.t) {
     case 'chat': {
       const text = clean(m.text, 400); if (!text || Date.now() - (c.lastChat || 0) < 400) return; c.lastChat = Date.now();
-      if (isRude(text)) return send(ws, { t: 'gonni', why: 'rude' });
+      if (isRude(text)) return send(ws, { t: 'toast', m: 'Kind words only, please' });
       const r = run('INSERT INTO messages(user,text,created) VALUES(?,?,?)', me.id, text, Date.now());
       const row = q1('SELECT * FROM messages WHERE id=?', Number(r.lastInsertRowid));
       return all({ t: 'chat', m: row });

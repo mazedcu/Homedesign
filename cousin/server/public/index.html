@@ -52,14 +52,6 @@ label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px;font-weigh
 canvas{width:100%;border-radius:16px;background:#fff7e6;touch-action:none;display:block}
 .bar{height:10px;background:#f1e5cf;border-radius:8px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--gold))}
 .gc{display:flex;gap:12px;align-items:center;padding:12px}.gc b.e{font-size:36px}
-/* gonni */
-#gonni{position:fixed;inset:0;z-index:80;display:none;pointer-events:auto;background:#0003;overflow:hidden}
-#gonni .g{position:absolute;bottom:14%;left:-260px;width:240px;animation:run 2.6s ease-in-out forwards}
-#gonni .say{position:absolute;bottom:calc(14% + 210px);left:50%;transform:translateX(-50%);background:#fff;border:3px solid var(--ink);border-radius:18px;padding:10px 14px;max-width:80vw;text-align:center;font-weight:800;animation:pop .3s}
-#gonni .br{transform-origin:150px 120px;animation:sweep .35s ease-in-out infinite alternate}
-@keyframes run{0%{left:-260px}55%{left:calc(50% - 120px)}100%{left:110%}}
-@keyframes sweep{from{transform:rotate(-18deg)}to{transform:rotate(22deg)}}
-@keyframes pop{from{transform:translateX(-50%) scale(.3)}to{transform:translateX(-50%) scale(1)}}
 .shake{animation:shk .35s}@keyframes shk{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
 .letter{font-size:44px;text-align:center;font-family:"Noto Naskh Arabic","Amiri",serif;direction:rtl}
 .ar{font-family:"Noto Naskh Arabic","Amiri","Traditional Arabic",serif;font-size:24px;direction:rtl;text-align:right;line-height:1.9}
@@ -69,7 +61,6 @@ canvas{width:100%;border-radius:16px;background:#fff7e6;touch-action:none;displa
 </style></head><body>
 <div id="app"><div id="conn">Reconnecting…</div><header id="hd"></header><div id="main"></div></div>
 <div id="toast"></div>
-<div id="gonni"><div class="say" id="gsay"></div><div class="g" id="gfig"></div></div>
 <input type="file" id="fph" accept="image/*" multiple hidden>
 <script>
 const $=s=>document.querySelector(s);
@@ -84,17 +75,7 @@ const toast=(m,t=2600)=>{const e=$('#toast');e.textContent=m;e.style.display='bl
 const send=m=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m))};
 const IN_APK=!!(window.Android&&window.Android.getServer);
 
-/* ---------- Mama Gonni ---------- */
-const GONNI_SVG=`<svg viewBox="0 0 300 300" width="240" height="240"><g class="br"><rect x="150" y="30" width="9" height="160" rx="4" fill="#8b5a2b" transform="rotate(24 150 120)"/><path d="M118 168 L196 142 L214 196 L136 214 Z" fill="#e0b050" stroke="#a07020" stroke-width="3" transform="rotate(24 150 120)"/></g>
-<ellipse cx="110" cy="250" rx="62" ry="40" fill="#2bb8ae"/><path d="M62 240 Q110 300 158 240 L150 290 L70 290Z" fill="#fff" opacity=".9"/>
-<circle cx="110" cy="150" r="62" fill="#8b6cf6"/><ellipse cx="110" cy="158" rx="42" ry="46" fill="#6d4fd6"/><path d="M70 140 Q110 100 150 140" stroke="#fff" stroke-width="5" fill="none" opacity=".6"/></svg>`;
-let gonniT=null;
-function gonni(why,msg){
-  const M={pin:'Wrong PIN, beta! Mama Gonni is watching! 🧹',rude:'Kind words only! Mama Gonni heard that! 🧹',wrong:'Tsk tsk! Go and study, then come back! 🧹',code:'That is not our family code! 🧹',boo:'Boo! Did you do a good deed today? 🧹',left:'Where are you running? Come back here! 🧹'};
-  $('#gsay').textContent=msg||M[why]||M.boo;const f=$('#gfig');f.innerHTML=GONNI_SVG;f.style.animation='none';void f.offsetWidth;f.style.animation='';
-  $('#gonni').style.display='block';clearTimeout(gonniT);gonniT=setTimeout(()=>$('#gonni').style.display='none',2700);
-}
-$('#gonni').onclick=()=>{$('#gonni').style.display='none'};
+function gonni(why){if(why==='rude')toast('Kind words only, please 💛',3000)}
 
 /* ---------- connection ---------- */
 function connect(){
@@ -107,7 +88,7 @@ function connect(){
 }
 function on(m){
   switch(m.t){
-    case 'init':{me=m.me;const{t,...rest}=m;Object.assign(S,rest);S.typing={};if(!window.__started){window.__started=true;render();randomGonni()}else render();break}
+    case 'init':{me=m.me;const{t,...rest}=m;Object.assign(S,rest);S.typing={};if(!window.__started){window.__started=true;render();void 0}else render();break}
     case 'users':case 'deeds':case 'events':case 'photos':case 'notes':case 'lessons':{const{t,...rest}=m;Object.assign(S,rest);if(m.t==='users'){me=S.users.find(u=>u.id===me.id)||me}refresh(m.t);break}
     case 'locks':S.locks=m.locks;if(view==='note')paintNote();if(view==='notes')render();break;
     case 'chat':S.chat.push(m.m);if(S.chat.length>300)S.chat.shift();if(view==='chat'){addMsg(m.m);send({t:'seen'})}else if(m.m.user!==me.id){S.unread++;if(view==='hub')render()}break;
@@ -120,9 +101,8 @@ function on(m){
     case 'note:opened':openNote=m.id;view='note';render();break;
     case 'cheer':toast(U(m.u).name+' did: '+m.emoji+' '+m.deed+'  +'+m.points+'⭐',3200);break;
     case 'rooms':S.rooms=m.rooms;if(view==='play'&&!S.room)render();break;
-    case 'room':{const had=S.room;S.room=m.room;if(!m.room&&had&&had.game==='chase')S.cs=null;if(view==='play')renderRoom(had);break}
-    case 'cs':S.cs=m;if(view==='play'&&S.room&&S.room.game==='chase')drawChase();break;
-    case 'code':S.code=m.code;break;
+    case 'room':{const had=S.room;S.room=m.room;if(view==='play')renderRoom(had);break}
+        case 'code':S.code=m.code;break;
     case 'kicked':token=null;try{localStorage.removeItem('cousin_token')}catch(e){}login('You were removed from the family.');break;
   }
 }
@@ -132,7 +112,6 @@ function refresh(k){
   else if(k==='photos'&&view==='album')render();else if(k==='lessons'&&view==='learn')vLearn();else if(k==='notes'&&(view==='notes'||view==='note'))view==='note'?paintNote():render();
   if(k==='users'&&view==='chat')paintChat();
 }
-function randomGonni(){setTimeout(()=>{if(view==='hub'&&!document.querySelector('.modal'))gonni('boo');randomGonni()},60000+Math.random()*90000)}
 function shakeEl(s){const e=$(s);if(e){e.classList.remove('shake');void e.offsetWidth;e.classList.add('shake')}}
 
 /* ---------- login ---------- */
@@ -160,14 +139,14 @@ function login(msg){
 }
 
 /* ---------- shell ---------- */
-const TITLES={hub:'Cousin Heaven ✨',chat:'Family Chat',notes:'Our Notes',note:'Note',deeds:'Good Deeds',album:'Our Album',learn:'Learning Zone',calendar:'Special Days',play:'Play Zone',gonni:'Mama Gonni'};
+const TITLES={hub:'Cousin Heaven ✨',chat:'Family Chat',notes:'Our Notes',note:'Note',deeds:'Good Deeds',album:'Our Album',learn:'Learning Zone',calendar:'Special Days',play:'Play Zone'};
 function go(v){if(S.room&&view==='play'&&v!=='play'&&S.room.state==='playing'){toast('Finish or leave your game first');return}view=v;if(v==='chat')S.unread=0;render();scrollTo(0,0)}
 function render(){
   if(!me)return;
   $('#hd').innerHTML=(view==='hub'?'':'<button class="ghost" id="bk" style="font-size:22px">‹</button>')+`<h1>${TITLES[view]}</h1><button class="ghost" id="pf">${av(me.id)}</button>`;
   if($('#bk'))$('#bk').onclick=()=>{if(view==='note'){send({t:'note:unlock',id:openNote});view='notes'}else if(view==='play'&&S.room){leaveRoom();return}else view='hub';render()};
   $('#pf').onclick=profile;
-  ({hub:vHub,chat:vChat,notes:vNotes,note:vNote,deeds:vDeeds,album:vAlbum,learn:vLearn,calendar:vCal,play:vPlay,gonni:vGonni}[view]||vHub)();
+  ({hub:vHub,chat:vChat,notes:vNotes,note:vNote,deeds:vDeeds,album:vAlbum,learn:vLearn,calendar:vCal,play:vPlay}[view]||vHub)();
 }
 function sheet(html,mount){closeSheet();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div class="sheet">'+html+'</div>';m.onclick=e=>{if(e.target===m)closeSheet()};document.body.appendChild(m);mount&&mount(m)}
 function closeSheet(){const m=$('#modal');if(m)m.remove()}
@@ -177,7 +156,7 @@ const nextOcc=e=>{const t=new Date();t.setHours(0,0,0,0);let d=new Date(e.date+'
 /* ---------- hub ---------- */
 function vHub(){
   const ev=S.events.map(e=>({...e,n:nextOcc(e)})).filter(e=>e.n>=0).sort((a,b)=>a.n-b.n)[0];
-  const T=[['play','🎮','Play Zone','#8b6cf6'],['chat','💬','Chat','#ff7aa2'],['notes','📝','Our Notes','#2bb8ae'],['deeds','⭐','Good Deeds','#f7b731'],['album','📸','Album','#ef7d57'],['learn','📚','Learning','#4c9be8'],['calendar','🎂','Special Days','#e0679c'],['gonni','🧹','Mama Gonni','#6b4fa0']];
+  const T=[['play','🎮','Play Zone','#8b6cf6'],['chat','💬','Chat','#ff7aa2'],['notes','📝','Our Notes','#2bb8ae'],['deeds','⭐','Good Deeds','#f7b731'],['album','📸','Album','#ef7d57'],['learn','📚','Learning','#4c9be8'],['calendar','🎂','Special Days','#e0679c']];
   const total=S.board.reduce((a,b)=>a+b.pts,0);
   $('#main').innerHTML=`<div class="card row"><div style="font-size:30px">👋</div><div style="flex:1"><b>Assalamu alaikum, ${esc(me.name)}!</b><div class="sub">${S.online.length} cousin${S.online.length==1?'':'s'} online · family stars: ${total} ⭐</div></div></div>
   <div class="row wrap" style="margin-bottom:10px">${S.users.map(u=>av(u.id)).join('')}</div>
@@ -289,14 +268,6 @@ function vCal(){
    <label><input type="checkbox" id="ey" checked style="width:auto"> Repeat every year</label><div class="row" style="justify-content:flex-end;margin-top:12px"><button onclick="closeSheet()">Cancel</button><button class="pri" id="eok">Add</button></div>`,()=>$('#eok').onclick=()=>{const t=$('#et').value.trim(),d=$('#ed').value;if(!t||!d)return;send({t:'event:add',title:t,date:d,type:$('#ety').value,yearly:$('#ey').checked});closeSheet()});
 }
 
-/* ---------- Mama Gonni page ---------- */
-function vGonni(){
-  $('#main').innerHTML=`<div class="card" style="text-align:center"><div style="margin:-20px 0 -30px">${GONNI_SVG.replace('class="br"','')}</div><h2 style="margin:0">Mama Gonni</h2><div class="sub">The mysterious lady with the broom 🧹</div></div>
-  <div class="card"><b>Mama Gonni's rules</b><ul style="padding-left:20px;margin:8px 0"><li>Speak kindly — rude words make her appear!</li><li>Wrong PIN or wrong answers? Swish! 🧹</li><li>Do your good deeds — she loves tidy, kind cousins.</li><li>In the Chase game she runs after everybody. Don't let her bonk you!</li></ul><div class="sub">She is only playful. Nobody gets hurt in Cousin Heaven. 💛</div></div>
-  <button class="pri" style="width:100%" id="gcall">Call Mama Gonni 🧹</button>`;
-  $('#gcall').onclick=()=>gonni('boo');
-}
-
 /* ---------- profile ---------- */
 const AVS=['🌸','🌟','🌙','🕌','🌺','🍀','🌈','🚀','⚽','🎈','🍎','🌻'],COLS=['#ff7aa2','#ffb347','#4ecdc4','#6c8cff','#a78bfa','#7bd88f','#ff6b6b','#f7c948'];
 function profile(){
@@ -379,7 +350,7 @@ function vLearn(){
 }
 
 /* ---------- play zone ---------- */
-const GINFO={quiz:['🎯','Quiz Race','Answer Islamic questions faster than your cousins!'],memory:['🧠','Memory Match','Take turns finding matching pairs.'],dots:['🔷','Dots & Boxes','Draw lines and close boxes to win them.'],scramble:['🔤','Word Scramble','Unscramble Islamic words. Fastest wins!'],chase:['🧹','Mama Gonni Chase','Collect stars and run from Mama Gonni’s broom! (live)']};
+const GINFO={quiz:['🎯','Quiz Race','Answer Islamic questions faster than your cousins!'],memory:['🧠','Memory Match','Take turns finding matching pairs.'],dots:['🔷','Dots & Boxes','Draw lines and close boxes to win them.'],scramble:['🔤','Word Scramble','Unscramble Islamic words. Fastest wins!']};
 function vPlay(){
   if(S.room){renderRoom(null);return}
   const open=S.rooms.filter(r=>r.state==='lobby');
@@ -389,7 +360,7 @@ function vPlay(){
   document.querySelectorAll('[data-j]').forEach(b=>b.onclick=()=>send({t:'g:join',id:b.dataset.j}));
   document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>send({t:'g:create',game:b.dataset.c}));
 }
-function leaveRoom(){const r=S.room;if(r&&r.state==='playing'){sheet(`<h3>Leave the game?</h3><div class="sub">Mama Gonni will chase you out! 🧹</div><div class="row" style="justify-content:flex-end;margin-top:10px"><button onclick="closeSheet()">Stay</button><button class="pri" id="lyes">Leave</button></div>`,()=>$('#lyes').onclick=()=>{closeSheet();gonni('left');send({t:'g:leave'})});return}send({t:'g:leave'})}
+function leaveRoom(){const r=S.room;if(r&&r.state==='playing'){sheet(`<h3>Leave the game?</h3><div class="sub">The other cousins are still playing.</div><div class="row" style="justify-content:flex-end;margin-top:10px"><button onclick="closeSheet()">Stay</button><button class="pri" id="lyes">Leave</button></div>`,()=>$('#lyes').onclick=()=>{closeSheet();send({t:'g:leave'})});return}send({t:'g:leave'})}
 function scoreBar(r,turn){return `<div class="score" style="margin-bottom:10px">${r.players.map(p=>`<div class="card ${turn===p?'turn':''}">${av(p,'sm')}<div class="sub">${esc(U(p).name)}</div><b>${r.scores[p]||0}</b></div>`).join('')}</div>`}
 function renderRoom(prev){
   const r=S.room;if(!r){render();return}
@@ -404,7 +375,7 @@ function renderRoom(prev){
     if($('#gs'))$('#gs').onclick=()=>send({t:r.state==='over'?'g:again':'g:start'});
     $('#gl').onclick=()=>send({t:'g:leave'});
     return}
-  ({quiz:gQuiz,memory:gMemory,dots:gDots,scramble:gScramble,chase:gChase}[r.game])(r,same);
+  ({quiz:gQuiz,memory:gMemory,dots:gDots,scramble:gScramble}[r.game])(r,same);
 }
 let qT=null;
 function gQuiz(r){
@@ -436,26 +407,6 @@ function gScramble(r){
   const g=()=>{const v=$('#guess').value.trim();if(v){send({t:'g:act',a:'guess',w:v});$('#guess').value=''}};
   if($('#gg')){$('#gg').onclick=g;$('#guess').onkeydown=e=>{if(e.key==='Enter')g()};if(document.hasFocus())$('#guess').focus()}$('#gl').onclick=leaveRoom;
   clearInterval(qT);if(!s.reveal){let l=s.left;qT=setInterval(()=>{l--;const e=$('#qt');if(e)e.textContent='⏱ '+Math.max(0,l);if(l<=0)clearInterval(qT)},1000)}
-}
-let cv=null,cx=null,lastMove=0;
-function gChase(r,same){
-  if(same&&cv&&document.body.contains(cv))return;
-  $('#main').innerHTML=`<div class="row sp" style="margin-bottom:6px"><b id="ct">⏱ 60</b><div class="score" id="csc"></div></div><canvas id="cv" width="800" height="480"></canvas><div class="sub" style="text-align:center;margin:6px 0">Drag or tap anywhere to run. Grab ⭐ stars. Dodge Mama Gonni! 🧹</div><button class="sm" id="gl">Leave</button>`;
-  cv=$('#cv');cx=cv.getContext('2d');$('#gl').onclick=leaveRoom;
-  const pt=e=>{const b=cv.getBoundingClientRect();return {x:(e.clientX-b.left)*800/b.width,y:(e.clientY-b.top)*480/b.height}};
-  let down=false;const mv=e=>{if(Date.now()-lastMove<50)return;lastMove=Date.now();const p=pt(e);send({t:'g:act',a:'move',x:p.x,y:p.y})};
-  cv.onpointerdown=e=>{down=true;cv.setPointerCapture(e.pointerId);lastMove=0;mv(e)};cv.onpointermove=e=>{if(down)mv(e)};cv.onpointerup=()=>down=false;
-  drawChase();
-}
-function drawChase(){
-  if(!cx||!document.body.contains(cv))return;const s=S.cs;cx.clearRect(0,0,800,480);cx.fillStyle='#fff7e6';cx.fillRect(0,0,800,480);
-  cx.fillStyle='#ffe9b8';for(let i=0;i<10;i++)for(let j=0;j<6;j++)if((i+j)%2==0)cx.fillRect(i*80,j*80,80,80);
-  if(!s){cx.fillStyle='#3b2a4a';cx.font='bold 30px system-ui';cx.textAlign='center';cx.fillText('Get ready…',400,240);return}
-  cx.textAlign='center';cx.textBaseline='middle';cx.font='30px system-ui';s.st.forEach(p=>cx.fillText('⭐',p[0],p[1]));
-  for(const [id,p] of Object.entries(s.p)){const u=U(+id);cx.fillStyle=u.color;cx.beginPath();cx.arc(p[0],p[1],22,0,7);cx.fill();cx.lineWidth=3;cx.strokeStyle=+id===me.id?'#3b2a4a':'#fff';cx.stroke();cx.font='24px system-ui';cx.fillText(fav(u),p[0],p[1]+1);if(p[2]){cx.font='22px system-ui';cx.fillText('💫',p[0],p[1]-30)}cx.font='bold 13px system-ui';cx.fillStyle='#3b2a4a';cx.fillText(u.name+' '+p[3]+'⭐',p[0],p[1]+36)}
-  cx.fillStyle='#2bb8ae';cx.beginPath();cx.ellipse(s.g[0],s.g[1]+22,26,24,0,0,7);cx.fill();cx.fillStyle='#8b6cf6';cx.beginPath();cx.arc(s.g[0],s.g[1]-8,24,0,7);cx.fill();cx.fillStyle='#6d4fd6';cx.beginPath();cx.ellipse(s.g[0],s.g[1]-4,17,19,0,0,7);cx.fill();cx.font='34px system-ui';cx.fillText('🧹',s.g[0]+34,s.g[1]+14);
-  const t=$('#ct');if(t)t.textContent='⏱ '+s.left;const sc=$('#csc');if(sc)sc.innerHTML=Object.entries(s.p).map(([id,p])=>`<span class="pill">${fav(U(+id))} ${p[3]}</span>`).join(' ');
-  if(s.hit&&+s.hit===me.id&&!drawChase.t){drawChase.t=1;toast('Bonk! Mama Gonni got you! 💫',1200);setTimeout(()=>drawChase.t=0,1500)}
 }
 connect();
 </script></body></html>
