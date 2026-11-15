@@ -61,7 +61,6 @@ canvas{width:100%;border-radius:16px;background:#fff7e6;touch-action:none;displa
 </style></head><body>
 <div id="app"><div id="conn">Reconnecting…</div><header id="hd"></header><div id="main"></div></div>
 <div id="toast"></div>
-<input type="file" id="fph" accept="image/*" multiple hidden>
 <script>
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -236,16 +235,18 @@ function vAlbum(){
   document.querySelectorAll('[data-a]').forEach(c=>c.onclick=()=>{album=c.dataset.a;render()});
   document.querySelectorAll('[data-p]').forEach(i=>i.onclick=()=>openPhoto(+i.dataset.p));
   $('#padd').onclick=()=>sheet(`<h3>Add photos</h3><label>Album name</label><input id="pa" list="pal" maxlength="30" value="${album==='All'?'Everyday':esc(album)}"><datalist id="pal">${albums.filter(a=>a!=='All').map(a=>`<option value="${esc(a)}">`).join('')}</datalist><label>Caption (optional)</label><input id="pc" maxlength="120" placeholder="Say something nice">
-   <div class="sub" id="pst" style="margin:8px 0"></div><div class="row" style="justify-content:flex-end"><button onclick="closeSheet()">Cancel</button><button class="pri" id="ppick">Choose photos</button></div>`,()=>{$('#ppick').onclick=()=>$('#fph').click()});
+   <input type="file" id="pf2" accept="image/*" multiple style="margin-top:10px"><div class="sub" id="pst" style="margin:8px 0">Choose photos, they upload right away.</div><div class="row" style="justify-content:flex-end"><button onclick="closeSheet()">Close</button></div>`,()=>{$('#pf2').onchange=upl});
 }
-$('#fph').onchange=async e=>{
-  const files=[...e.target.files];e.target.value='';let n=0;
+async function upl(e){
+  const files=[...e.target.files];e.target.value='';let n=0,bad='';
   for(const f of files){try{
-    const b=await shrink(f);const al=encodeURIComponent(($('#pa')||{}).value||'Everyday'),cp=encodeURIComponent(($('#pc')||{}).value||'');
-    if($('#pst'))$('#pst').textContent='Uploading '+(++n)+' of '+files.length+'…';
-    const r=await fetch('/api/photos?album='+al+'&caption='+cp,{method:'POST',headers:{'x-token':token,'content-type':'image/jpeg'},body:b});if(!r.ok)throw 0}catch(x){toast('A photo could not be uploaded')}}
-  closeSheet();if(n)toast('Photos added! 📸');
-};
+    let b;try{b=await shrink(f)}catch(x){b=f}
+    const al=encodeURIComponent(($('#pa')||{}).value||'Everyday'),cp=encodeURIComponent(($('#pc')||{}).value||'');
+    if($('#pst'))$('#pst').textContent='Uploading '+(n+1)+' of '+files.length+'…';
+    const r=await fetch('/api/photos?album='+al+'&caption='+cp,{method:'POST',headers:{'x-token':token,'content-type':b.type&&/jpeg|png|webp/.test(b.type)?b.type:'image/jpeg'},body:b});
+    if(!r.ok)throw new Error('server said '+r.status);n++}catch(x){bad=String(x&&x.message||x)}}
+  if(bad)toast('Photo problem: '+bad,5000);else{closeSheet();toast('Photos added! 📸')}
+}
 function shrink(f){return new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const s=Math.min(1,1280/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);c.toBlob(b=>b?ok(b):no(),'image/jpeg',.82)};im.onerror=no;im.src=URL.createObjectURL(f)})}
 function openPhoto(id){
   const list=S.photos.filter(p=>album==='All'||p.album===album);let i=list.findIndex(p=>p.id===id);
