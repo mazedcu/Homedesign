@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS likes(photo INTEGER, user INTEGER, PRIMARY KEY(photo,
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY, title TEXT, date TEXT, type TEXT, yearly INTEGER, by INTEGER);
 CREATE TABLE IF NOT EXISTS lessons(id INTEGER PRIMARY KEY, title TEXT, kind TEXT, body TEXT, created INTEGER);
 CREATE TABLE IF NOT EXISTS wazes(id INTEGER PRIMARY KEY, title TEXT, file TEXT, size INTEGER, created INTEGER);
+CREATE TABLE IF NOT EXISTS track(user INTEGER, day TEXT, salah INTEGER DEFAULT 0, pages INTEGER DEFAULT 0, PRIMARY KEY(user, day));
 CREATE TABLE IF NOT EXISTS settings(k TEXT PRIMARY KEY, v TEXT);
 `);
 const q = (sql, ...a) => db.prepare(sql).all(...a);
@@ -108,6 +109,12 @@ for (const fn of ['create', 'join', 'leave', 'start', 'rematch', 'act']) { const
 const locks = new Map();
 const lockOf = id => { const l = locks.get(id); return l && Date.now() - l.ts < 12000 ? l : null; };
 
+// ---------- salah & quran tracker (private per member) ----------
+const dayStr = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const dayAgo = n => { const d = new Date(); d.setDate(d.getDate() - n); return dayStr(d); };
+const trackMsg = uid => ({ t: 'track', trk: q('SELECT day, salah, pages FROM track WHERE user=? AND day>=? ORDER BY day DESC', uid, dayAgo(60)), trkTotal: (q1('SELECT COALESCE(SUM(pages),0) p FROM track WHERE user=?', uid) || {}).p || 0 });
+const bits = n => { let c = 0; for (let i = 0; i < 5; i++) if (n & (1 << i)) c++; return c; };
+
 // ---------- websocket handling ----------
 function handle(c, m) {
   const me = c.user, ws = c.ws;
@@ -135,6 +142,21 @@ function handle(c, m) {
     case 'lesson:add': { if (!admin) return; const t = clean(m.title, 80), b = String(m.body ?? '').slice(0, 6000).trim(); if (!t || !b) return; run('INSERT INTO lessons(title,kind,body,created) VALUES(?,?,?,?)', t, ['story', 'writing', 'lesson'].includes(m.kind) ? m.kind : 'lesson', b, Date.now()); return bcast('lessons'); }
     case 'lesson:del': if (admin) { run('DELETE FROM lessons WHERE id=?', +m.id); bcast('lessons'); } return;
     case 'waz:del': { if (!admin) return; const w = q1('SELECT * FROM wazes WHERE id=?', +m.id); if (w) { run('DELETE FROM wazes WHERE id=?', w.id); fs.rm(path.join(AUDIO, path.basename(w.file)), () => {}); bcast('wazes'); } return; }
+    case 'track:set': {
+      const day = String(m.day || ''); if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day > today() || day < dayAgo(7)) return;
+      const salah = (+m.salah || 0) & 31, pages = Math.max(0, Math.min(300, Math.round(+m.pages || 0)));
+      run('INSERT INTO track(user,day,salah,pages) VALUES(?,?,?,?) ON CONFLICT(user,day) DO UPDATE SET salah=excluded.salah, pages=excluded.pages', me.id, day, salah, pages);
+      for (const o of clients) if (o.user.id === me.id) send(o.ws, trackMsg(me.id));
+      return;
+    }
+    case 'track:all': {
+      if (!admin) return;
+      const from = dayAgo(6), members = q('SELECT id, name, avatar, color, role FROM users ORDER BY id').map(u => {
+        const week = q('SELECT day, salah, pages FROM track WHERE user=? AND day>=? ORDER BY day', u.id, from);
+        return { id: u.id, name: u.name, avatar: u.avatar, color: u.color, role: u.role, week, weekSalah: week.reduce((a, r) => a + bits(r.salah), 0), weekPages: week.reduce((a, r) => a + r.pages, 0), total: (q1('SELECT COALESCE(SUM(pages),0) p FROM track WHERE user=?', u.id) || {}).p || 0 };
+      });
+      return send(ws, { t: 'track:all', members, from });
+    }
     case 'event:add': { const t = clean(m.title, 60), dt = clean(m.date, 10); if (!t || !/^\d{4}-\d{2}-\d{2}$/.test(dt)) return; run('INSERT INTO events(title,date,type,yearly,by) VALUES(?,?,?,?,?)', t, dt, ['birthday', 'eid', 'gathering', 'other'].includes(m.type) ? m.type : 'other', m.yearly ? 1 : 0, me.id); return bcast('events'); }
     case 'event:del': { const e = q1('SELECT * FROM events WHERE id=?', +m.id); if (e && (admin || e.by === me.id)) { run('DELETE FROM events WHERE id=?', e.id); bcast('events'); } return; }
     case 'photo:like': { const id = +m.id; if (q1('SELECT 1 x FROM likes WHERE photo=? AND user=?', id, me.id)) run('DELETE FROM likes WHERE photo=? AND user=?', id, me.id); else run('INSERT INTO likes VALUES(?,?)', id, me.id); return bcast('photos'); }
@@ -244,6 +266,7 @@ wss.on('connection', (ws, req) => {
   const c = { ws, user: u }; clients.add(c);
   const init = { t: 'init', me: u, code: u.role === 'admin' ? getSet('code') : undefined, chat: chatRows(), rooms: rooms.list(), room: (() => { const r = rooms.roomOf(u.id); return r ? rooms.view(r, u.id) : null; })(), locks: Object.fromEntries([...locks].filter(([k]) => lockOf(k)).map(([k, v]) => [k, v.u])), day: today(), games: GAMES };
   for (const k of ['users', 'deeds', 'events', 'photos', 'notes', 'lessons', 'wazes']) { const s = slices[k](); delete s.t; Object.assign(init, s); }
+  { const tm = trackMsg(u.id); delete tm.t; Object.assign(init, tm); }
   send(ws, init);
   all(slices.users());
   ws.on('message', d => { let m; try { m = JSON.parse(d); } catch { return; } try { handle(c, m); } catch (e) { console.error('msg error', e); } });

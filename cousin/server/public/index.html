@@ -65,7 +65,7 @@ canvas{width:100%;border-radius:16px;background:#fff7e6;touch-action:none;displa
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let token=null;try{token=localStorage.getItem('cousin_token')}catch(e){}
-let S={wazes:[],lessons:[],users:[],online:[],chat:[],notes:[],locks:{},deeds:[],tdone:[],once:[],board:[],week:[],events:[],photos:[],rooms:[],room:null,games:{},typing:{},unread:0};
+let S={trk:[],trkTotal:0,wazes:[],lessons:[],users:[],online:[],chat:[],notes:[],locks:{},deeds:[],tdone:[],once:[],board:[],week:[],events:[],photos:[],rooms:[],room:null,games:{},typing:{},unread:0};
 let me=null,ws=null,view='hub',wsOk=false,retry=0,openNote=null,album='All',viewer=null,lbTab='week';
 const U=id=>S.users.find(u=>u.id===id)||{id,name:'Someone',avatar:'🌟',color:'#ccc'};
 const AVOK=['🌸','🌟','🌙','🕌','🌺','🍀','🌈','🚀','⚽','🎈','🍎','🌻'];const fav=u=>AVOK.includes(u.avatar)?u.avatar:'🌟';
@@ -89,6 +89,8 @@ function on(m){
   switch(m.t){
     case 'init':{me=m.me;const{t,...rest}=m;Object.assign(S,rest);S.typing={};if(!window.__started){window.__started=true;render();void 0}else render();break}
     case 'users':case 'deeds':case 'events':case 'photos':case 'notes':case 'lessons':case 'wazes':{const{t,...rest}=m;Object.assign(S,rest);if(m.t==='users'){me=S.users.find(u=>u.id===me.id)||me}refresh(m.t);break}
+    case 'track':S.trk=m.trk;S.trkTotal=m.trkTotal;if(view==='track')render();break;
+    case 'track:all':showFamilyTrack(m);break;
     case 'locks':S.locks=m.locks;if(view==='note')paintNote();if(view==='notes')render();break;
     case 'chat':S.chat.push(m.m);if(S.chat.length>300)S.chat.shift();if(view==='chat'){addMsg(m.m);send({t:'seen'})}else if(m.m.user!==me.id){S.unread++;if(view==='hub')render()}break;
     case 'chat:del':S.chat=S.chat.filter(x=>x.id!==m.id);if(view==='chat')paintChat();break;
@@ -138,14 +140,14 @@ function login(msg){
 }
 
 /* ---------- shell ---------- */
-const TITLES={hub:'Cousin Heaven ✨',chat:'Family Chat',notes:'Our Notes',note:'Note',deeds:'Good Deeds',album:'Our Album',learn:'Learning Zone',waz:'Listen to Waz',calendar:'Special Days',play:'Play Zone'};
+const TITLES={hub:'Cousin Heaven ✨',chat:'Family Chat',notes:'Our Notes',note:'Note',deeds:'Good Deeds',album:'Our Album',learn:'Learning Zone',waz:'Listen to Waz',track:'Salah & Quran',calendar:'Special Days',play:'Play Zone'};
 function go(v){if(S.room&&view==='play'&&v!=='play'&&S.room.state==='playing'){toast('Finish or leave your game first');return}view=v;if(v==='chat')S.unread=0;render();scrollTo(0,0)}
 function render(){
   if(!me)return;
   $('#hd').innerHTML=(view==='hub'?'':'<button class="ghost" id="bk" style="font-size:22px">‹</button>')+`<h1>${TITLES[view]}</h1><button class="ghost" id="pf">${av(me.id)}</button>`;
   if($('#bk'))$('#bk').onclick=()=>{if(view==='note'){send({t:'note:unlock',id:openNote});view='notes'}else if(view==='play'&&S.room){leaveRoom();return}else view='hub';render()};
   $('#pf').onclick=profile;
-  ({hub:vHub,chat:vChat,notes:vNotes,note:vNote,deeds:vDeeds,album:vAlbum,learn:vLearn,waz:vWaz,calendar:vCal,play:vPlay}[view]||vHub)();
+  ({hub:vHub,chat:vChat,notes:vNotes,note:vNote,deeds:vDeeds,album:vAlbum,learn:vLearn,waz:vWaz,track:vTrack,calendar:vCal,play:vPlay}[view]||vHub)();
 }
 function sheet(html,mount){closeSheet();const m=document.createElement('div');m.className='modal';m.id='modal';m.innerHTML='<div class="sheet">'+html+'</div>';m.onclick=e=>{if(e.target===m)closeSheet()};document.body.appendChild(m);mount&&mount(m)}
 function closeSheet(){const m=$('#modal');if(m)m.remove()}
@@ -155,7 +157,7 @@ const nextOcc=e=>{const t=new Date();t.setHours(0,0,0,0);let d=new Date(e.date+'
 /* ---------- hub ---------- */
 function vHub(){
   const ev=S.events.map(e=>({...e,n:nextOcc(e)})).filter(e=>e.n>=0).sort((a,b)=>a.n-b.n)[0];
-  const T=[['play','🎮','Play Zone','#8b6cf6'],['chat','💬','Chat','#ff7aa2'],['notes','📝','Our Notes','#2bb8ae'],['deeds','⭐','Good Deeds','#f7b731'],['album','📸','Album','#ef7d57'],['learn','📚','Learning','#4c9be8'],['waz','🎧','Listen to Waz','#3a8f6b'],['calendar','🎂','Special Days','#e0679c']];
+  const T=[['play','🎮','Play Zone','#8b6cf6'],['chat','💬','Chat','#ff7aa2'],['notes','📝','Our Notes','#2bb8ae'],['deeds','⭐','Good Deeds','#f7b731'],['album','📸','Album','#ef7d57'],['learn','📚','Learning','#4c9be8'],['waz','🎧','Listen to Waz','#3a8f6b'],['track','📿','Salah & Quran','#5b7fe0'],['calendar','🎂','Special Days','#e0679c']];
   const total=S.board.reduce((a,b)=>a+b.pts,0);
   $('#main').innerHTML=`<div class="card row"><div style="font-size:30px">👋</div><div style="flex:1"><b>Assalamu alaikum, ${esc(me.name)}!</b><div class="sub">${S.online.length} cousin${S.online.length==1?'':'s'} online · family stars: ${total} ⭐</div></div></div>
   <div class="row wrap" style="margin-bottom:10px">${S.users.map(u=>av(u.id)).join('')}</div>
@@ -260,6 +262,41 @@ function openPhoto(id){
   show();
 }
 
+/* ---------- salah & quran tracker ---------- */
+const PRAYERS=[['Fajr','الفجر'],['Dhuhr','الظهر'],['Asr','العصر'],['Maghrib','المغرب'],['Isha','العشاء']];
+let trDay=null;
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const lastDays=n=>Array.from({length:n},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(n-1-i));return ymd(d)});
+const bitc=n=>[0,1,2,3,4].filter(i=>n&(1<<i)).length;
+function trRow(day){return S.trk.find(r=>r.day===day)||{day,salah:0,pages:0}}
+function vTrack(){
+  const days=lastDays(7),td=days[6];if(!trDay||!days.includes(trDay))trDay=td;
+  const r=trRow(trDay),dn=d=>d===td?'Today':new Date(d+'T00:00:00').toLocaleDateString([],{weekday:'short'});
+  // streak of days with all five prayers
+  let streak=0;{const set={};S.trk.forEach(x=>set[x.day]=x);let d=new Date();if(bitc((set[ymd(d)]||{salah:0}).salah)<5)d.setDate(d.getDate()-1);while(set[ymd(d)]&&bitc(set[ymd(d)].salah)===5){streak++;d.setDate(d.getDate()-1)}}
+  const wk=days.map(d=>trRow(d)),wkS=wk.reduce((a,x)=>a+bitc(x.salah),0),wkP=wk.reduce((a,x)=>a+x.pages,0);
+  const khatam=Math.floor(S.trkTotal/604),prog=(S.trkTotal%604)/604*100;
+  $('#main').innerHTML=`<div class="row wrap" style="margin-bottom:10px;gap:6px">${days.map(d=>`<span class="chip ${d===trDay?'on':''}" data-d="${d}">${dn(d)}</span>`).join('')}</div>
+  <div class="card"><div class="row sp"><b>🕌 Salah</b><span class="pill">${bitc(r.salah)} / 5</span></div>
+  <div style="margin-top:10px">${PRAYERS.map((p,i)=>{const on=r.salah&(1<<i);return `<button data-p="${i}" style="width:100%;display:flex;justify-content:space-between;align-items:center;margin:6px 0;padding:12px 14px;font-size:17px;${on?'background:#c8f7d4;border-color:#34c759':''}"><span>${on?'✅':'⬜'} ${p[0]}</span><span style="font-family:'Noto Naskh Arabic',serif;font-size:20px">${p[1]}</span></button>`}).join('')}</div>
+  <div class="sub" style="margin-top:6px">${streak?'🔥 '+streak+' day'+(streak>1?'s':'')+' with all 5 prayers in a row':'Pray all 5 to start a streak'}</div></div>
+  <div class="card"><div class="row sp"><b>📖 Quran</b><span class="pill">${r.pages} page${r.pages==1?'':'s'}</span></div>
+  <div class="row" style="justify-content:center;margin:12px 0;gap:14px"><button id="qm" style="font-size:22px;width:54px">−</button><div style="font-size:34px;font-weight:800;min-width:60px;text-align:center">${r.pages}</div><button class="pri" id="qp" style="font-size:22px;width:54px">+</button></div>
+  <div class="row" style="justify-content:center"><button class="sm" data-q="5">+5</button><button class="sm" data-q="10">+10</button><button class="sm" data-q="20">+20</button></div>
+  <div class="bar" style="margin-top:14px"><i style="width:${prog}%"></i></div><div class="sub" style="margin-top:4px">${S.trkTotal} pages in total · ${khatam?khatam+' khatam'+(khatam>1?'s':'')+' 🎉 · ':''}604 pages = one full Quran</div></div>
+  <div class="card"><b>This week</b><div class="sub">Salah ${wkS}/35 · Quran ${wkP} pages</div><div class="row" style="justify-content:space-between;margin-top:8px">${wk.map(x=>`<div style="text-align:center"><div class="sub" style="font-size:11px">${dn(x.day).slice(0,3)}</div><div style="font-weight:800;color:${bitc(x.salah)===5?'#34c759':bitc(x.salah)?'#f7b731':'#ccc'}">${bitc(x.salah)}</div><div class="sub" style="font-size:11px">${x.pages?x.pages+'p':'·'}</div></div>`).join('')}</div></div>
+  <div class="sub" style="text-align:center">🔒 This is between you and Allah. Only parents can see a summary.</div>
+  ${me.role==='admin'?'<button style="width:100%;margin-top:10px" id="tfam">👨‍👩‍👧 Family overview (parents)</button>':''}`;
+  const save=(salah,pages)=>send({t:'track:set',day:trDay,salah,pages});
+  document.querySelectorAll('[data-d]').forEach(c=>c.onclick=()=>{trDay=c.dataset.d;vTrack()});
+  document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>save(r.salah^(1<<+b.dataset.p),r.pages));
+  $('#qp').onclick=()=>save(r.salah,r.pages+1);$('#qm').onclick=()=>save(r.salah,Math.max(0,r.pages-1));
+  document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>save(r.salah,r.pages+ +b.dataset.q));
+  if($('#tfam'))$('#tfam').onclick=()=>send({t:'track:all'});
+}
+function showFamilyTrack(m){
+  sheet(`<div class="row sp"><h3 style="margin:0">Family overview</h3><button class="ghost" onclick="closeSheet()">✕</button></div><div class="sub" style="margin-bottom:8px">Last 7 days</div>${m.members.map(u=>`<div class="card" style="box-shadow:none;border:2px solid var(--line)"><div class="row"><span class="av" style="background:${u.color}">${AVOK.includes(u.avatar)?u.avatar:'🌟'}</span><b style="flex:1">${esc(u.name)}</b></div><div class="row sp" style="margin-top:6px"><span>🕌 ${u.weekSalah}/35</span><span>📖 ${u.weekPages} pages</span><span class="sub">total ${u.total}</span></div><div class="bar" style="margin-top:6px"><i style="width:${u.weekSalah/35*100}%"></i></div></div>`).join('')}`);
+}
 /* ---------- calendar ---------- */
 function vCal(){
   const l=S.events.map(e=>({...e,n:nextOcc(e)})).sort((a,b)=>(a.n<0)-(b.n<0)||a.n-b.n);
