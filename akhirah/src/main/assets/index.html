@@ -254,6 +254,7 @@ async function aiBreak(){const g=G(),b=$('#aiBtn'),msg=$('#aiMsg');b.disabled=tr
 
 /* ---------- On-phone auto-backup (APK) ---------- */
 let lbTimer=null,lbErr='';
+window.onBackupFolder=()=>{S.autoLocal=true;save();localBackup(true);if(document.getElementById('lb-st'))settings()};
 function hasLocal(){return !!(window.Android&&window.Android.autoBackup)}
 function schedLocal(){if(!hasLocal()||S.autoLocal===false)return;clearTimeout(lbTimer);lbTimer=setTimeout(()=>localBackup(false),20000)}
 function localBackup(manual){
@@ -264,8 +265,9 @@ function localBackup(manual){
     const d=new Date().getDay();
     const ok=window.Android.autoBackup('lifeapp-auto-latest.json',b)&&window.Android.autoBackup('lifeapp-auto-day'+d+'.json',b);
     if(!ok)throw 0;
+    if(window.Android.folderBackup&&window.Android.backupFolder()){const r=window.Android.folderBackup('lifeapp-auto-latest.json',b);if(r)throw r}
     S.lbAt=Date.now();S.lbHash=h;lbErr='';lsSave();
-  }catch(e){lbErr='Could not save the backup file.'}
+  }catch(e){lbErr=typeof e==='string'?'Cloud folder: '+e:'Could not save the backup file.'}
   const el=document.getElementById('lb-st');if(el)el.innerHTML=localStatus();
   return !lbErr}
 function localStatus(){if(lbErr)return '<span style="color:var(--red)">'+esc(lbErr)+'</span>';if(S.autoLocal===false)return 'Off';return S.lbAt?'On · last backup '+new Date(S.lbAt).toLocaleString():'On · first backup soon'}
@@ -300,14 +302,14 @@ function driveStatus(){const D=S.drive;if(driveErr)return '<span style="color:va
 function settings(){sheet(`<h2 style="margin-top:0">Backup & data</h2><div class="sub" id="stat">${esc(syncNote||'Saved on this device')}</div>
 <div class="row" style="margin-top:12px;flex-wrap:wrap"><button id="ex">Export backup</button>
 <span style="position:relative;display:inline-block"><button style="pointer-events:none">Import from file</button><input type="file" id="fi" accept="*/*" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer"></span></div>
-${hasLocal()?`<h2>Auto-backup on this phone</h2><div class="sub">Saves a backup file automatically a few seconds after every change, to Downloads/LifeApp (latest file, plus one per weekday). To restore, use “Import from file” below.</div><div class="sub" id="lb-st" style="margin:6px 0">${localStatus()}</div><div class="row" style="flex-wrap:wrap"><button class="pri" id="lb-now">Back up now</button><button id="lb-tg">${S.autoLocal===false?'Turn on':'Turn off'}</button></div>`:''}
+${hasLocal()?`<h2>Auto-backup on this phone</h2><div class="sub">Saves a backup file automatically a few seconds after every change, to Downloads/LifeApp (latest file, plus one per weekday). To restore, use “Import from file” below.</div><div class="sub" id="lb-st" style="margin:6px 0">${localStatus()}</div><div class="sub" style="margin:6px 0">Cloud folder: <b>${window.Android.backupFolder?esc(window.Android.backupFolder()||'none'):'none'}</b>. Choose a folder inside <b>Google Drive</b> (pick “Drive” in the left menu of the picker) and every backup is also uploaded there automatically.</div><div class="row" style="flex-wrap:wrap"><button id="lb-fo">Choose Drive folder</button>${window.Android.backupFolder&&window.Android.backupFolder()?'<button id="lb-fx">Stop cloud folder</button>':''}<button class="pri" id="lb-now">Back up now</button><button id="lb-tg">${S.autoLocal===false?'Turn on':'Turn off'}</button></div>`:''}
 <h2>Google Drive auto-backup</h2><div class="sub">Saves a copy to a “Life App Backups” folder in your Drive after changes (at most every 3 hours, keeping one file per day). It runs while the app is open.</div><div class="sub" id="gd-st" style="margin:6px 0">${driveStatus()}</div><div class="row" style="flex-wrap:wrap"><button class="pri" id="gd-on">${S.drive.on?'Back up now':'Turn on'}</button>${S.drive.on?'<button id="gd-off">Turn off</button>':''}</div>
 <label>Or paste backup text here</label><textarea id="pt" placeholder="Paste the contents of your backup file"></textarea>
 <div class="row" style="justify-content:space-between;margin-top:12px"><button id="pi">Import pasted text</button><button id="cl">Close</button></div>`,()=>{
   const st=m=>{$('#stat').textContent=m};
   const load=txt=>{try{const o=JSON.parse(txt);if(!o||typeof o!=='object'||Array.isArray(o)||!('salah' in o||'debts' in o||'goals' in o||'huquq' in o||'targets' in o))throw 0;const keep=S.drive;S=norm(o);S.drive=keep;save();closeSheet();render()}catch(x){st('That does not look like an Life App backup.')}};
   $('#cl').onclick=closeSheet;
-  if($('#lb-now')){$('#lb-now').onclick=()=>{const ok=localBackup(true);st(ok?'Backup saved to Downloads/LifeApp.':'Backup failed.')};$('#lb-tg').onclick=()=>{S.autoLocal=(S.autoLocal===false);save();if(S.autoLocal!==false)localBackup(true);settings()}}
+  if($('#lb-now')){$('#lb-fo').onclick=()=>window.Android.pickBackupFolder();if($('#lb-fx'))$('#lb-fx').onclick=()=>{window.Android.clearBackupFolder();settings()};$('#lb-now').onclick=()=>{const ok=localBackup(true);st(ok?'Backup saved to Downloads/LifeApp.':'Backup failed.')};$('#lb-tg').onclick=()=>{S.autoLocal=(S.autoLocal===false);save();if(S.autoLocal!==false)localBackup(true);settings()}}
   $('#gd-on').onclick=async()=>{S.drive.on=true;save();$('#gd-st').textContent='Backing up…';await driveBackup(true);if(!driveErr)render()};
   if($('#gd-off'))$('#gd-off').onclick=()=>{S.drive.on=false;clearTimeout(dTimer);save();closeSheet();settings()};
   $('#pi').onclick=()=>{const t=$('#pt').value.trim();if(!t){st('Paste the backup text first.');return}load(t)};
