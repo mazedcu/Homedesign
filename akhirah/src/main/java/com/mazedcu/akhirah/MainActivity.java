@@ -29,6 +29,42 @@ public class MainActivity extends Activity {
 
     /** Exposed to the page as window.Android — saves exported files to Downloads. */
     class Bridge {
+        /** Silent auto-backup: overwrites one file per name in Downloads/LifeApp. */
+        @JavascriptInterface
+        public boolean autoBackup(String name, String b64) {
+            try {
+                byte[] data = Base64.decode(b64, Base64.DEFAULT);
+                if (Build.VERSION.SDK_INT >= 29) {
+                    Uri col = MediaStore.Downloads.EXTERNAL_CONTENT_URI;
+                    Uri u = null;
+                    android.database.Cursor c = getContentResolver().query(col,
+                        new String[]{MediaStore.Downloads._ID},
+                        MediaStore.Downloads.DISPLAY_NAME + "=? AND " + MediaStore.Downloads.RELATIVE_PATH + " LIKE ?",
+                        new String[]{name, Environment.DIRECTORY_DOWNLOADS + "/LifeApp%"}, null);
+                    if (c != null) {
+                        if (c.moveToFirst()) u = android.content.ContentUris.withAppendedId(col, c.getLong(0));
+                        c.close();
+                    }
+                    if (u == null) {
+                        ContentValues v = new ContentValues();
+                        v.put(MediaStore.Downloads.DISPLAY_NAME, name);
+                        v.put(MediaStore.Downloads.MIME_TYPE, "application/json");
+                        v.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/LifeApp");
+                        u = getContentResolver().insert(col, v);
+                    }
+                    OutputStream o = getContentResolver().openOutputStream(u, "wt");
+                    o.write(data); o.close();
+                } else {
+                    File f = new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), name);
+                    FileOutputStream o = new FileOutputStream(f);
+                    o.write(data); o.close();
+                }
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }
+
         @JavascriptInterface
         public void saveFile(String name, String mime, String b64) {
             try {

@@ -69,7 +69,7 @@ function lsSave(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
 function lsLoad(){try{const t=localStorage.getItem(LS);return t?JSON.parse(t):null}catch(e){return null}}
 function norm(o){o=o||{};if(!o.drive)o.drive={on:false};if(!o.targets)o.targets=[{id:'quran',name:'Quran reading',unit:'pages',goal:2,step:1}];if(!o.tlog)o.tlog={};if(!o.todos)o.todos=[];if(o.salah)for(const k in o.salah)for(const p in o.salah[k]){const v=o.salah[k][p];if(v==='d')o.salah[k][p]='a';else if(v==='m')delete o.salah[k][p]}const d={salah:{},qaza:{fajr:0,dhuhr:0,asr:0,maghrib:0,isha:0},debts:[],huquq:[],goals:[],targets:[],tlog:{},todos:[]};return Object.assign(d,o)}
 let saveT=null,saving=false,dirty=false;
-function save(){lsSave();dirty=true;schedDrive();if(!dbDoc)return;clearTimeout(saveT);saveT=setTimeout(flush,700)}
+function save(){lsSave();dirty=true;schedDrive();schedLocal();if(!dbDoc)return;clearTimeout(saveT);saveT=setTimeout(flush,700)}
 async function flush(){if(saving||!dbDoc||!dirty)return;saving=true;dirty=false;try{await dbDoc.set({data:JSON.stringify(S),at:Date.now()});syncNote='Saved privately to your account'}catch(e){syncNote='Saved on this device only'}saving=false;if(dirty)flush()}
 async function initDb(){
   S=norm(lsLoad());render();
@@ -252,9 +252,26 @@ async function aiBreak(){const g=G(),b=$('#aiBtn'),msg=$('#aiMsg');b.disabled=tr
     if(!Array.isArray(r))throw 0;r.slice(0,6).forEach(m=>{if(m&&m.t)g.ms.push({id:uid(),t:String(m.t),done:false,tasks:(m.tasks||[]).slice(0,6).map(x=>({id:uid(),t:String(x),done:false}))})});save();render()}
   catch(e){msg.textContent='Could not generate a suggestion right now.';b.disabled=false}}
 
+/* ---------- On-phone auto-backup (APK) ---------- */
+let lbTimer=null,lbErr='';
+function hasLocal(){return !!(window.Android&&window.Android.autoBackup)}
+function schedLocal(){if(!hasLocal()||S.autoLocal===false)return;clearTimeout(lbTimer);lbTimer=setTimeout(()=>localBackup(false),20000)}
+function localBackup(manual){
+  if(!hasLocal())return false;
+  const h=hashS();if(!manual&&h===S.lbHash)return true;
+  try{
+    const b=btoa(unescape(encodeURIComponent(JSON.stringify(S,null,1))));
+    const d=new Date().getDay();
+    const ok=window.Android.autoBackup('lifeapp-auto-latest.json',b)&&window.Android.autoBackup('lifeapp-auto-day'+d+'.json',b);
+    if(!ok)throw 0;
+    S.lbAt=Date.now();S.lbHash=h;lbErr='';lsSave();
+  }catch(e){lbErr='Could not save the backup file.'}
+  const el=document.getElementById('lb-st');if(el)el.innerHTML=localStatus();
+  return !lbErr}
+function localStatus(){if(lbErr)return '<span style="color:var(--red)">'+esc(lbErr)+'</span>';if(S.autoLocal===false)return 'Off';return S.lbAt?'On · last backup '+new Date(S.lbAt).toLocaleString():'On · first backup soon'}
 /* ---------- Google Drive auto-backup ---------- */
 const DRV='Google Drive';let driveBusy=false,dTimer=null,driveErr='';
-function hashS(){const o=Object.assign({},S);delete o.drive;const t=JSON.stringify(o);let h=0;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return h+':'+t.length}
+function hashS(){const o=Object.assign({},S);delete o.drive;delete o.lbAt;delete o.lbHash;const t=JSON.stringify(o);let h=0;for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return h+':'+t.length}
 function idOf(p){if(typeof p==='string'){try{p=JSON.parse(p)}catch(e){return null}}if(!p||typeof p!=='object')return null;if(p.id)return p.id;if(p.file&&p.file.id)return p.file.id;const a=p.files||p.items;return Array.isArray(a)&&a[0]&&a[0].id?a[0].id:null}
 function errText(e){const c=e&&e.code;return c==='server_not_connected'||c==='server_not_found'?'Google Drive is not connected. Add it in Claude Settings → Connectors.':c==='needs_reauth'?'Reconnect Google Drive in Claude Settings → Connectors.':c==='not_in_manifest'||c==='approval_required'?'Drive access was not allowed. Tap “Back up now” and choose Allow.':c==='blocked_by_policy'?'Your organisation blocks Google Drive here.':c==='none'?'Drive backup works only inside the Claude app. Use Export backup here.':'Backup failed — it will try again later.'}
 function schedDrive(){const D=S.drive;if(!D||!D.on)return;clearTimeout(dTimer);const w=D.lastAt?Math.max(60000,D.lastAt+3*3600e3-Date.now()):60000;dTimer=setTimeout(()=>driveBackup(false),w)}
@@ -263,7 +280,7 @@ async function driveBackup(manual){
   const h=hashS();if(!manual&&h===D.lastHash)return;
   driveBusy=true;driveErr='';
   try{
-    const mcp=await claude.use('mcp');if(!mcp)throw {code:'none'};
+    const mcp=(typeof claude!=='undefined')?await claude.use('mcp'):null;if(!mcp)throw {code:'none'};
     if(!D.folderId){
       const r=await mcp.callTool(DRV,'search_files',{query:"title = 'Life App Backups' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",excludeContentSnippets:true});
       let id=idOf(r.payload);
@@ -283,12 +300,14 @@ function driveStatus(){const D=S.drive;if(driveErr)return '<span style="color:va
 function settings(){sheet(`<h2 style="margin-top:0">Backup & data</h2><div class="sub" id="stat">${esc(syncNote||'Saved on this device')}</div>
 <div class="row" style="margin-top:12px;flex-wrap:wrap"><button id="ex">Export backup</button>
 <span style="position:relative;display:inline-block"><button style="pointer-events:none">Import from file</button><input type="file" id="fi" accept="*/*" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer"></span></div>
+${hasLocal()?`<h2>Auto-backup on this phone</h2><div class="sub">Saves a backup file automatically a few seconds after every change, to Downloads/LifeApp (latest file, plus one per weekday). To restore, use “Import from file” below.</div><div class="sub" id="lb-st" style="margin:6px 0">${localStatus()}</div><div class="row" style="flex-wrap:wrap"><button class="pri" id="lb-now">Back up now</button><button id="lb-tg">${S.autoLocal===false?'Turn on':'Turn off'}</button></div>`:''}
 <h2>Google Drive auto-backup</h2><div class="sub">Saves a copy to a “Life App Backups” folder in your Drive after changes (at most every 3 hours, keeping one file per day). It runs while the app is open.</div><div class="sub" id="gd-st" style="margin:6px 0">${driveStatus()}</div><div class="row" style="flex-wrap:wrap"><button class="pri" id="gd-on">${S.drive.on?'Back up now':'Turn on'}</button>${S.drive.on?'<button id="gd-off">Turn off</button>':''}</div>
 <label>Or paste backup text here</label><textarea id="pt" placeholder="Paste the contents of your backup file"></textarea>
 <div class="row" style="justify-content:space-between;margin-top:12px"><button id="pi">Import pasted text</button><button id="cl">Close</button></div>`,()=>{
   const st=m=>{$('#stat').textContent=m};
   const load=txt=>{try{const o=JSON.parse(txt);if(!o||typeof o!=='object'||Array.isArray(o)||!('salah' in o||'debts' in o||'goals' in o||'huquq' in o||'targets' in o))throw 0;const keep=S.drive;S=norm(o);S.drive=keep;save();closeSheet();render()}catch(x){st('That does not look like an Life App backup.')}};
   $('#cl').onclick=closeSheet;
+  if($('#lb-now')){$('#lb-now').onclick=()=>{const ok=localBackup(true);st(ok?'Backup saved to Downloads/LifeApp.':'Backup failed.')};$('#lb-tg').onclick=()=>{S.autoLocal=(S.autoLocal===false);save();if(S.autoLocal!==false)localBackup(true);settings()}}
   $('#gd-on').onclick=async()=>{S.drive.on=true;save();$('#gd-st').textContent='Backing up…';await driveBackup(true);if(!driveErr)render()};
   if($('#gd-off'))$('#gd-off').onclick=()=>{S.drive.on=false;clearTimeout(dTimer);save();closeSheet();settings()};
   $('#pi').onclick=()=>{const t=$('#pt').value.trim();if(!t){st('Paste the backup text first.');return}load(t)};
@@ -307,5 +326,5 @@ function render(){
   const fab={todo:'addTodo()',daily:'addTarget()',debts:'addDebtMenu()',huquq:(S.lock&&hqOpen)?'addHuquq()':'',goals:'addGoal()'}[tab];
   $('#app').innerHTML=`<header><div><h1>${titles[tab]}</h1><div class="sub">بسم الله · prepare for the meeting with your Lord</div></div><button class="ghost" onclick="settings()" aria-label="Backup">⚙︎</button></header>${body}${fab?`<button class="pri fab" onclick="${fab}">+</button>`:''}<nav>${T.map(t=>`<button class="${(tab===t[0]||(tab==='goal'&&t[0]==='goals'))?'on':''}" onclick="go('${t[0]}')"><b>${t[1]}</b>${t[2]}</button>`).join('')}</nav>`}
 function addDebtMenu(){sheet(`<h2 style="margin-top:0">Add</h2><div class="row" style="flex-direction:column;align-items:stretch"><button class="pri" id="d1">Debt I owe</button><button id="d2">Money owed to me</button><button id="d3">Cancel</button></div>`,()=>{$('#d1').onclick=()=>{closeSheet();addDebt('owe')};$('#d2').onclick=()=>{closeSheet();addDebt('owed')};$('#d3').onclick=closeSheet})}
-render();initDb();
+render();initDb();schedLocal();
 </script></body></html>
