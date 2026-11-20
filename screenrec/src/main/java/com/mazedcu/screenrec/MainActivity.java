@@ -76,13 +76,16 @@ public class MainActivity extends Activity {
         sl.topMargin = dp(22);
         root.addView(startBtn, sl);
 
-        TextView last = text("Open last recording", 15, 0xFF5AA2FF);
+        TextView last = text("▦  Gallery — play, trim, cut, crop", 16, Color.WHITE);
+        last.setBackground(bg(0xFF232B36, 16));
         last.setGravity(Gravity.CENTER);
-        last.setPadding(0, dp(16), 0, dp(10));
-        last.setOnClickListener(v -> openLast());
-        root.addView(last);
+        last.setPadding(0, dp(16), 0, dp(16));
+        last.setOnClickListener(v -> startActivity(new Intent(this, GalleryActivity.class)));
+        LinearLayout.LayoutParams gl = new LinearLayout.LayoutParams(-1, -2);
+        gl.topMargin = dp(12);
+        root.addView(last, gl);
 
-        TextView tips = text("While recording a floating bar appears: ✎ opens drawing tools (pen, marker, arrow, 5 colours, undo, clear, auto-fade), ⏸ pauses, ■ stops, ⌃ shrinks the bar. Recordings are saved in Movies/ScreenRec. Lock your screen rotation before you start. Sound from the phone itself cannot be captured by this app; the microphone can.", 13, 0xFF8A94A3);
+        TextView tips = text("While recording a floating bar appears: ✎ opens drawing tools (pen, marker, arrow, 5 colours, undo, clear, auto-fade), ⏸ pauses, ■ stops, ⌃ shrinks the bar. Recordings are saved in Movies/ScreenRec and appear in the Gallery. Lock your screen rotation before you start. Sound from the phone itself cannot be captured by this app; the microphone can.", 13, 0xFF8A94A3);
         tips.setPadding(0, dp(14), 0, 0);
         root.addView(tips);
     }
