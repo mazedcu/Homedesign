@@ -1,0 +1,4 @@
+<resources>
+    <!-- Put your server address here (e.g. https://masjid.example.com) to skip the first-launch setup screen. -->
+    <string name="default_server"></string>
+</resources>

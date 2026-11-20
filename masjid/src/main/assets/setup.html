@@ -1,0 +1,11 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{margin:0;background:#f6f9f8;font:16px system-ui;color:#16211d;text-align:center;padding:36px 22px}
+input{width:100%;box-sizing:border-box;font:inherit;padding:14px;border:2px solid #dfe8e4;border-radius:14px;margin:12px 0}
+button{width:100%;font:inherit;font-weight:700;padding:14px;border:0;border-radius:14px;background:#0f5e4d;color:#fff}
+.e{color:#d9382f;display:none}</style></head><body>
+<div style="font-size:64px">🕌</div><h1>Masjid Finder</h1>
+<p>Enter the server address (only once).</p>
+<p class="e" id="e">Could not connect. Check the address and your internet.</p>
+<input id="u" placeholder="http://104.248.226.23:3200" autocapitalize="none" autocomplete="off">
+<button onclick="var v=document.getElementById('u').value.trim();if(v)Android.setServer(v)">Connect</button>
+<script>if(location.search.indexOf('err')>0)document.getElementById('e').style.display='block';</script></body></html>

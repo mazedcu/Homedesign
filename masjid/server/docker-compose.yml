@@ -1,0 +1,21 @@
+name: masjidfinder
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/data
+    ports:
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-3200}:3000"
+  caddy:
+    image: caddy:2
+    profiles: ["caddy"]
+    restart: unless-stopped
+    ports: ["80:80","443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+    depends_on: [app]
+volumes:
+  caddy_data:

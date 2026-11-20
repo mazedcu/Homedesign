@@ -1,4 +1,4 @@
 pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
 dependencyResolutionManagement { repositories { google(); mavenCentral() } }
 rootProject.name = "Homedesign"
-include ':app', ':akhirah', ':drawrec', ':cousin', ':arabic', ':screenrec'
+include ':app', ':akhirah', ':drawrec', ':cousin', ':arabic', ':screenrec', ':masjid'

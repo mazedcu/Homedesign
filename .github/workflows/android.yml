@@ -15,7 +15,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.9' }
       - name: Build debug APK
-        run: gradle :app:assembleDebug :akhirah:assembleDebug :drawrec:assembleDebug :cousin:assembleDebug :arabic:assembleDebug :screenrec:assembleDebug --no-daemon
+        run: gradle :app:assembleDebug :akhirah:assembleDebug :drawrec:assembleDebug :cousin:assembleDebug :arabic:assembleDebug :screenrec:assembleDebug :masjid:assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: Planora-debug-apk
@@ -28,6 +28,7 @@ jobs:
           cp cousin/build/outputs/apk/debug/cousin-debug.apk CousinHeaven.apk
           cp arabic/build/outputs/apk/debug/arabic-debug.apk LittleArabic.apk
           cp screenrec/build/outputs/apk/debug/screenrec-debug.apk ScreenRecorder.apk
+          cp masjid/build/outputs/apk/debug/masjid-debug.apk MasjidFinder.apk
       - uses: actions/upload-artifact@v4
         with:
           name: LifeApp-debug-apk
@@ -49,4 +50,5 @@ jobs:
             CousinHeaven.apk
             LittleArabic.apk
             ScreenRecorder.apk
+            MasjidFinder.apk
         env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }

@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0f5e4d">
+<title>Masjid Finder</title>
+<link rel="stylesheet" href="/vendor/leaflet.css">
+<style>
+:root{--g:#0f5e4d;--g2:#e7f4ef;--ink:#16211d;--mut:#6b7a74;--line:#dfe8e4;--red:#d9382f;--amb:#d97706;--grn:#16a34a;--bg:#f6f9f8}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Noto Sans Bengali",sans-serif}
+#app{height:100%;max-width:560px;margin:0 auto;display:flex;flex-direction:column;background:#fff;position:relative;overflow:hidden}
+header{background:var(--g);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;flex:none}
+header h1{font-size:18px;margin:0;flex:1;font-weight:700}
+header button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:10px;padding:7px 11px;font:inherit;font-size:13px}
+#bar{display:flex;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);flex:none;position:relative}
+#bar input{flex:1;min-width:0;font:inherit;padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;background:#fff}
+.ib{border:0;border-radius:12px;background:var(--g2);color:var(--g);font-size:19px;width:44px}
+#sug{position:absolute;left:10px;right:62px;top:52px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px #0002;z-index:1200;display:none;overflow:hidden}
+#sug div{padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px}
+#main{flex:1;min-height:0;display:flex;flex-direction:column}
+#mapwrap{position:relative;height:36%;flex:none;background:#dfe8e4}
+#map{position:absolute;inset:0}
+.addmode #mapwrap{height:46%}
+#here{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--g);color:#fff;border:0;border-radius:20px;padding:7px 14px;font:inherit;font-size:13px;box-shadow:0 2px 8px #0003;display:none}
+#cross{position:absolute;left:50%;top:50%;z-index:1000;font-size:34px;transform:translate(-50%,-100%);pointer-events:none;display:none;filter:drop-shadow(0 2px 2px #0006)}
+.addmode #cross{display:block}
+#list,#page{flex:1;min-height:0;overflow:auto;padding:10px;-webkit-overflow-scrolling:touch}
+.card{border:1px solid var(--line);border-radius:14px;padding:11px 12px;margin-bottom:9px;background:#fff}
+.card.tap:active{background:var(--g2)}
+.row{display:flex;align-items:center;gap:8px}
+.grow{flex:1;min-width:0}
+.nm{font-weight:700}
+.sub{color:var(--mut);font-size:13px}
+.chip{display:inline-block;border-radius:20px;padding:2px 9px;font-size:12px;font-weight:600}
+.f-fresh{background:#dcfce7;color:#166534}.f-aging{background:#fef3c7;color:#92400e}.f-stale,.f-none{background:#eceff1;color:#546e7a}
+.st-approved{background:#dcfce7;color:#166534}.st-pending{background:#fef3c7;color:#92400e}.st-rejected,.st-removed{background:#fee2e2;color:#991b1b}
+nav{display:flex;border-top:1px solid var(--line);flex:none;background:#fff}
+nav button{flex:1;border:0;background:none;padding:8px 0 9px;font:inherit;font-size:12px;color:var(--mut);position:relative}
+nav button b{display:block;font-size:20px;font-weight:400}
+nav button.on{color:var(--g);font-weight:700}
+nav .dot{position:absolute;top:4px;right:calc(50% - 22px);background:var(--red);color:#fff;border-radius:9px;font-size:10px;padding:0 5px}
+.btn{border:0;border-radius:12px;padding:11px 14px;font:inherit;font-weight:600;background:var(--g);color:#fff}
+.btn.sec{background:var(--g2);color:var(--g)}.btn.red{background:#fee2e2;color:#991b1b}.btn.sm{padding:7px 11px;font-size:13px}
+.btn:disabled{opacity:.5}
+input.f,textarea.f,select.f{width:100%;font:inherit;padding:11px 12px;border:1.5px solid var(--line);border-radius:12px;margin:5px 0 9px;background:#fff}
+label{font-size:13px;color:var(--mut);display:block}
+h2{font-size:16px;margin:14px 0 8px}
+.pin{width:34px;height:34px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px #0005;color:#fff}
+.pin span{transform:rotate(45deg);font-size:17px}
+.pin.f-fresh{background:var(--grn)}.pin.f-aging{background:var(--amb)}.pin.f-stale,.pin.f-none{background:#6b7280}.pin.pend{background:#7c3aed}
+.me{width:16px;height:16px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 4px #2563eb44}
+#sheet{position:absolute;inset:0;background:#fff;z-index:2000;display:none;flex-direction:column}
+#sheet .top{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line);flex:none}
+#sheet .body{flex:1;overflow:auto;padding:14px}
+table.tt{width:100%;border-collapse:collapse}
+table.tt td{padding:9px 4px;border-bottom:1px solid var(--line)}
+table.tt td:last-child{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+table.tt tr.nx td{background:var(--g2)}
+.est td:last-child{color:var(--mut);font-weight:500}
+#toast{position:absolute;left:50%;bottom:76px;transform:translateX(-50%);background:#222c;color:#fff;border-radius:20px;padding:9px 16px;font-size:14px;z-index:3000;display:none;max-width:88%;text-align:center}
+.tabs{display:flex;gap:6px;margin-bottom:10px}.tabs button{flex:1;padding:9px;border:0;border-radius:10px;background:var(--g2);color:var(--g);font:inherit;font-weight:600}.tabs button.on{background:var(--g);color:#fff}
+.leaflet-container{font:inherit}
+</style></head><body>
+<div id="app">
+ <header><h1 id="ttl">🕌 Masjid Finder</h1><button id="lang"></button></header>
+ <div id="bar"><input id="q" autocomplete="off"><button class="ib" id="loc" aria-label="locate">📍</button><div id="sug"></div></div>
+ <div id="main">
+  <div id="mapwrap"><div id="map"></div><button id="here"></button><div id="cross">📍</div></div>
+  <div id="list"></div><div id="page" style="display:none"></div>
+ </div>
+ <nav id="nav"></nav>
+ <div id="sheet"><div class="top"><button class="btn sec sm" id="sx">←</button><div class="nm grow" id="st"></div></div><div class="body" id="sb"></div></div>
+ <div id="toast"></div>
+</div>
+<script src="/vendor/leaflet.js"></script>
+<script>
+/* ============ translations ============ */
+const TR={en:{
+nearby:'Nearby',add:'Add',account:'Account',search_ph:'Search a place or area…',searching:'Looking for masjids…',none_found:'No masjids found here yet. Move the map or add one.',
+here:'Search this area',navigate:'Navigate',report:'Wrong time?',report_sent:'Thank you. The report was sent.',become:'Become the volunteer',pending_app:'Your application is waiting for approval',
+update:'Update jamat times',same:'Same as last week ✓',save:'Save',name:'Masjid name',addr:'Address / landmark (optional)',phone:'Phone number',pin:'PIN (4–6 digits)',yname:'Your name',
+signin:'Sign in',register:'Create account',signout:'Sign out',updated:'Updated',never:'Not updated yet',by:'by',est:'Estimated prayer times',est_note:'No volunteer has added jamat times for this masjid yet. These are calculated times for your area, not the masjid’s jamat.',
+stale_note:'These times were last updated a while ago and may have changed.',fajr:'Fajr',dhuhr:'Dhuhr',asr:'Asr',maghrib:'Maghrib',isha:'Isha',jumuah:'Jumu’ah',next:'Next',in:'in',min:'min',tomorrow:'tomorrow',
+today:'today',yesterday:'yesterday',days_ago:'days ago',community:'Community-added',approve:'Approve',reject:'Reject',merge:'Merge into',remove:'Remove',apps:'Volunteer applications',newm:'Masjids waiting for approval',
+reports:'Reports',vols:'Volunteers',dup_t:'Is it one of these?',dup_this:'Yes, open it',dup_add:'No, add a new one',submit_add:'Send for approval',add_hint:'Move the map so the pin is exactly on the masjid, then fill in the name.',
+i_vol:'I will keep the jamat times of this masjid updated',note_ph:'How are you connected to this masjid? (e.g. muazzin, committee member)',sent:'Sent. The masjid will appear after approval.',loc_denied:'Could not get your location. Search a place instead.',
+my_vol:'My volunteering',no_vol:'You are not a volunteer yet. Open a masjid and tap “Become the volunteer”.',st_approved:'Approved',st_pending:'Waiting',st_rejected:'Rejected',st_removed:'Removed',km:'km',m:'m',open:'Open',clear:'Clear',
+close:'Close',need_signin:'Please sign in or create an account first.',saved:'Saved. Thank you!',unnamed:'Unnamed masjid',vol_by:'Volunteer',adm:'Admin',hello:'Assalamu alaikum',
+vol_intro:'Volunteers keep the jamat times of one masjid up to date, about once a week. An admin approves each volunteer.',apply_note:'Tell the admin how you are connected to this masjid (optional)',apply_btn:'Send application',
+applied:'Application sent. You will be able to update times once approved.',new_pin:'PIN',enter_five:'Enter all five daily jamat times.',jumuah_opt:'Jumu’ah (optional)',pend_lbl:'Waiting for approval',
+cancel:'Cancel',history:'Recent updates',map_by:'Map data © OpenStreetMap contributors'},
+bn:{nearby:'কাছাকাছি',add:'যোগ করুন',account:'অ্যাকাউন্ট',search_ph:'স্থান বা এলাকা খুঁজুন…',searching:'মসজিদ খোঁজা হচ্ছে…',none_found:'এখানে এখনো কোনো মসজিদ পাওয়া যায়নি। ম্যাপ সরান বা মসজিদ যোগ করুন।',
+here:'এই এলাকায় খুঁজুন',navigate:'পথ দেখুন',report:'সময় ভুল?',report_sent:'ধন্যবাদ। রিপোর্ট পাঠানো হয়েছে।',become:'স্বেচ্ছাসেবক হোন',pending_app:'আপনার আবেদন অনুমোদনের অপেক্ষায়',
+update:'জামাতের সময় আপডেট করুন',same:'গত সপ্তাহের মতোই ✓',save:'সংরক্ষণ',name:'মসজিদের নাম',addr:'ঠিকানা / চেনার মতো স্থান (ঐচ্ছিক)',phone:'ফোন নম্বর',pin:'পিন (৪–৬ সংখ্যা)',yname:'আপনার নাম',
+signin:'সাইন ইন',register:'অ্যাকাউন্ট খুলুন',signout:'সাইন আউট',updated:'আপডেট',never:'এখনো আপডেট হয়নি',by:'—',est:'আনুমানিক নামাজের সময়',est_note:'এই মসজিদের জামাতের সময় এখনো কোনো স্বেচ্ছাসেবক দেননি। এগুলো আপনার এলাকার হিসাব করা সময়, মসজিদের জামাত নয়।',
+stale_note:'এই সময় অনেক আগে আপডেট করা, বদলে গিয়ে থাকতে পারে।',fajr:'ফজর',dhuhr:'যোহর',asr:'আসর',maghrib:'মাগরিব',isha:'ইশা',jumuah:'জুমুআ',next:'পরের',in:'আর',min:'মিনিট',tomorrow:'আগামীকাল',
+today:'আজ',yesterday:'গতকাল',days_ago:'দিন আগে',community:'কমিউনিটি যোগ করেছে',approve:'অনুমোদন',reject:'বাতিল',merge:'একত্র করুন',remove:'সরান',apps:'স্বেচ্ছাসেবকের আবেদন',newm:'অনুমোদনের অপেক্ষায় মসজিদ',
+reports:'রিপোর্ট',vols:'স্বেচ্ছাসেবক',dup_t:'এটি কি এদের একটি?',dup_this:'হ্যাঁ, খুলুন',dup_add:'না, নতুন যোগ করুন',submit_add:'অনুমোদনের জন্য পাঠান',add_hint:'পিনটি ঠিক মসজিদের ওপর আসার মতো ম্যাপ সরান, তারপর নাম লিখুন।',
+i_vol:'আমি এই মসজিদের জামাতের সময় আপডেট রাখব',note_ph:'এই মসজিদের সাথে আপনার সম্পর্ক কী? (যেমন মুয়াজ্জিন, কমিটির সদস্য)',sent:'পাঠানো হয়েছে। অনুমোদনের পর মসজিদটি দেখা যাবে।',loc_denied:'আপনার অবস্থান পাওয়া যায়নি। স্থান খুঁজে নিন।',
+my_vol:'আমার স্বেচ্ছাসেবা',no_vol:'আপনি এখনো স্বেচ্ছাসেবক নন। কোনো মসজিদ খুলে “স্বেচ্ছাসেবক হোন” চাপুন।',st_approved:'অনুমোদিত',st_pending:'অপেক্ষায়',st_rejected:'বাতিল',st_removed:'সরানো হয়েছে',km:'কিমি',m:'মি',open:'খুলুন',clear:'মুছুন',
+close:'বন্ধ',need_signin:'আগে সাইন ইন করুন বা অ্যাকাউন্ট খুলুন।',saved:'সংরক্ষিত। ধন্যবাদ!',unnamed:'নামহীন মসজিদ',vol_by:'স্বেচ্ছাসেবক',adm:'অ্যাডমিন',hello:'আসসালামু আলাইকুম',
+vol_intro:'স্বেচ্ছাসেবকরা একটি মসজিদের জামাতের সময় প্রায় প্রতি সপ্তাহে আপডেট রাখেন। অ্যাডমিন প্রতিজন স্বেচ্ছাসেবককে অনুমোদন দেন।',apply_note:'এই মসজিদের সাথে আপনার সম্পর্ক অ্যাডমিনকে জানান (ঐচ্ছিক)',apply_btn:'আবেদন পাঠান',
+applied:'আবেদন পাঠানো হয়েছে। অনুমোদনের পর সময় আপডেট করতে পারবেন।',new_pin:'পিন',enter_five:'পাঁচ ওয়াক্তের জামাতের সময় দিন।',jumuah_opt:'জুমুআ (ঐচ্ছিক)',pend_lbl:'অনুমোদনের অপেক্ষায়',
+cancel:'বাতিল',history:'সাম্প্রতিক আপডেট',map_by:'ম্যাপ © OpenStreetMap contributors'}};
+let LANG=localStorage.mf_lang||'en';
+const t=k=>(TR[LANG][k]||TR.en[k]||k);
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const PR=['fajr','dhuhr','asr','maghrib','isha'];
+const mname=m=>(LANG==='bn'?(m.name_bn||m.name||m.name_en):(m.name_en||m.name||m.name_bn))||t('unnamed');
+
+/* ============ state ============ */
+let TOKEN=localStorage.mf_token||'',USER=null,VOLS=[],POS=null,MASJIDS=[],VIEW='nearby',ADMIN=null,CFG={map:{provider:'osm'}},CENTER=null,loading=false;
+try{POS=JSON.parse(localStorage.mf_pos||'null')}catch(e){}
+
+async function api(p,body){
+  try{
+    const r=await fetch(p,{method:body!==undefined?'POST':'GET',headers:{'content-type':'application/json','x-token':TOKEN},body:body!==undefined?JSON.stringify(body):undefined});
+    let d={};try{d=await r.json()}catch(e){}
+    return {ok:r.ok,status:r.status,d};
+  }catch(e){return {ok:false,status:0,d:{error:'No internet connection.'}}}
+}
+let tt;function toast(m){const e=$('#toast');e.textContent=m;e.style.display='block';clearTimeout(tt);tt=setTimeout(()=>e.style.display='none',3200)}
+
+/* ============ time helpers ============ */
+const fmt12=s=>{if(!s)return '—';let [h,m]=s.split(':').map(Number);const ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+String(m).padStart(2,'0')+' '+ap};
+const toMin=s=>{const [h,m]=s.split(':').map(Number);return h*60+m};
+function ago(ts){if(!ts)return t('never');const d=Math.floor((Date.now()-ts)/864e5);return d<=0?t('today'):d===1?t('yesterday'):d+' '+t('days_ago')}
+function nextJamat(times){
+  if(!times)return null;const n=new Date(),cur=n.getHours()*60+n.getMinutes();
+  for(const p of PR){if(times[p]&&toMin(times[p])>cur)return {p,time:times[p],left:toMin(times[p])-cur,tomorrow:false}}
+  return times.fajr?{p:'fajr',time:times.fajr,left:0,tomorrow:true}:null;
+}
+function distTxt(k){return k==null?'':k<1?Math.round(k*1000)+' '+t('m'):k.toFixed(1)+' '+t('km')}
+/* Calculated prayer times (University of Islamic Sciences Karachi, Hanafi Asr) used only as an estimate. */
+function calcTimes(lat,lng,d=new Date()){
+  const R=Math.PI/180,sin=x=>Math.sin(x*R),cos=x=>Math.cos(x*R),tan=x=>Math.tan(x*R),acos=x=>Math.acos(x)/R,fix=(a,b)=>{a=a-b*Math.floor(a/b);return a<0?a+b:a};
+  const tz=-d.getTimezoneOffset()/60;
+  let Y=d.getFullYear(),M=d.getMonth()+1,D=d.getDate();if(M<=2){Y--;M+=12}
+  const A=Math.floor(Y/100),B=2-A+Math.floor(A/4);
+  const jd=Math.floor(365.25*(Y+4716))+Math.floor(30.6001*(M+1))+D+B-1524.5-lng/360;
+  const dd=jd-2451545,g=fix(357.529+0.98560028*dd,360),q=fix(280.459+0.98564736*dd,360),L=fix(q+1.915*sin(g)+0.02*sin(2*g),360),e=23.439-3.6e-7*dd;
+  const RA=fix(Math.atan2(cos(e)*sin(L),cos(L))/R,360)/15,eqt=q/15-RA,decl=Math.asin(sin(e)*sin(L))/R;
+  const noon=12+tz-lng/15-eqt;
+  const T=a=>acos((-sin(a)-sin(decl)*sin(lat))/(cos(decl)*cos(lat)))/15;
+  const asrA=-Math.atan(1/(2+tan(Math.abs(lat-decl))))/R;
+  const f=h=>{h=fix(h,24);const m=Math.round(h*60)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
+  return {fajr:f(noon-T(18)),dhuhr:f(noon+0.03),asr:f(noon+T(asrA)),maghrib:f(noon+T(0.833)),isha:f(noon+T(18))};
+}
+
+/* ============ map provider (swappable) ============ */
+/* A provider implements: init(el,center,zoom,onMove), setMarkers(list,onTap), setMe(lat,lng), fly(lat,lng,zoom), center(), resize().
+   To add Google Maps later, add MapProviders.google with the same methods and set MAP_PROVIDER=google on the server. */
+const MapProviders={
+  osm:{
+    init(el,c,z,onMove){
+      this.map=L.map(el,{zoomControl:false,attributionControl:true}).setView(c,z);
+      this.map.attributionControl.setPrefix(false);
+      L.tileLayer(CFG.map.tiles||'https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:CFG.map.attribution||'© OpenStreetMap contributors'}).addTo(this.map);
+      L.control.zoom({position:'bottomright'}).addTo(this.map);
+      this.layer=L.layerGroup().addTo(this.map);this.map.on('moveend',()=>onMove&&onMove());
+    },
+    setMarkers(list,onTap){
+      this.layer.clearLayers();
+      list.forEach(m=>{
+        const ic=L.divIcon({className:'',iconSize:[34,34],iconAnchor:[17,34],html:'<div class="pin '+(m.status==='pending'?'pend':'f-'+m.fresh)+'"><span>🕌</span></div>'});
+        L.marker([m.lat,m.lng],{icon:ic}).on('click',()=>onTap(m.id)).addTo(this.layer);
+      });
+    },
+    setMe(lat,lng){if(this.me)this.me.remove();this.me=L.marker([lat,lng],{icon:L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],html:'<div class="me"></div>'}),interactive:false}).addTo(this.map)},
+    fly(lat,lng,z){this.map.setView([lat,lng],z||this.map.getZoom())},
+    center(){const c=this.map.getCenter();return {lat:c.lat,lng:c.lng}},
+    resize(){this.map.invalidateSize()}
+  }
+};
+let MP=null;
+
+/* ============ location ============ */
+function getLocation(){
+  return new Promise((ok,no)=>{
+    if(window.Android&&Android.requestLocation){
+      window.onNativeLocation=(la,lo,err)=>{err?no(err):ok({lat:la,lng:lo})};
+      Android.requestLocation();return;
+    }
+    if(!navigator.geolocation)return no('none');
+    navigator.geolocation.getCurrentPosition(p=>ok({lat:p.coords.latitude,lng:p.coords.longitude}),e=>no(e.message),{enableHighAccuracy:true,timeout:15000,maximumAge:60000});
+  });
+}
+async function locate(){
+  try{
+    const p=await getLocation();POS=p;localStorage.mf_pos=JSON.stringify(p);
+    MP.setMe(p.lat,p.lng);MP.fly(p.lat,p.lng,15);await load(p.lat,p.lng);
+  }catch(e){toast(t('loc_denied'))}
+}
+
+/* ============ nearby ============ */
+async function load(lat,lng){
+  if(loading)return;loading=true;$('#here').style.display='none';
+  $('#list').innerHTML='<div class="sub" style="padding:18px;text-align:center">'+t('searching')+'</div>';
+  const r=await api('/api/masjids?lat='+lat+'&lng='+lng+'&r=4');
+  loading=false;
+  if(!r.ok){$('#list').innerHTML='<div class="sub" style="padding:18px;text-align:center">'+esc(r.d.error||'Error')+'</div>';return}
+  CENTER={lat,lng};MASJIDS=r.d.masjids;MP.setMarkers(MASJIDS,openMasjid);renderList();
+}
+function renderList(){
+  const ref=POS||CENTER;
+  if(!MASJIDS.length){$('#list').innerHTML='<div class="sub" style="padding:18px;text-align:center">'+t('none_found')+'</div>';return}
+  $('#list').innerHTML=MASJIDS.map(m=>{
+    const nj=nextJamat(m.times);
+    const d=ref?(Math.hypot((m.lat-ref.lat)*111,(m.lng-ref.lng)*111*Math.cos(ref.lat*Math.PI/180))):m.dist;
+    return '<div class="card tap" data-id="'+m.id+'"><div class="row"><div class="grow"><div class="nm">'+esc(mname(m))+'</div>'+
+      '<div class="sub">'+distTxt(d)+(m.status==='pending'?' · '+t('pend_lbl'):m.source==='community'?' · '+t('community'):'')+'</div></div>'+
+      '<span class="chip f-'+m.fresh+'">'+(m.fresh==='none'?t('never'):ago(m.updated))+'</span></div>'+
+      (nj&&m.fresh!=='none'?'<div style="margin-top:6px"><b>'+t(nj.p)+' '+fmt12(nj.time)+'</b> <span class="sub">'+(nj.tomorrow?t('tomorrow'):t('in')+' '+(nj.left>=60?Math.floor(nj.left/60)+'h '+nj.left%60:nj.left)+' '+t('min'))+'</span></div>':'')+'</div>';
+  }).join('');
+}
+$('#list').onclick=e=>{const c=e.target.closest('[data-id]');if(c)openMasjid(+c.dataset.id)};
+
+/* ============ masjid sheet ============ */
+function sheet(title,html){$('#st').textContent=title;$('#sb').innerHTML=html;$('#sheet').style.display='flex';$('#sb').scrollTop=0}
+function closeSheet(){$('#sheet').style.display='none'}
+$('#sx').onclick=closeSheet;
+let CUR=null;
+async function openMasjid(id){
+  const r=await api('/api/masjid/'+id);
+  if(!r.ok){toast(r.d.error||'Error');return}
+  const m=CUR=r.d;
+  const ref=POS||CENTER;
+  const est=!m.times?calcTimes(m.lat,m.lng):null;
+  const times=m.times||est;
+  const nj=m.times?nextJamat(m.times):null;
+  let rows=PR.map(p=>'<tr'+(nj&&nj.p===p&&!nj.tomorrow?' class="nx"':'')+'><td>'+t(p)+'</td><td>'+fmt12(times[p])+'</td></tr>').join('');
+  if(m.times&&m.times.jumuah)rows+='<tr><td>'+t('jumuah')+'</td><td>'+fmt12(m.times.jumuah)+'</td></tr>';
+  let h='<div class="sub">'+esc(m.address||'')+(m.address?' · ':'')+(ref?distTxt(Math.hypot((m.lat-ref.lat)*111,(m.lng-ref.lng)*111*Math.cos(ref.lat*Math.PI/180))):'')+'</div>'+
+    '<div class="row" style="margin:10px 0"><button class="btn grow" data-a="nav">🧭 '+t('navigate')+'</button><button class="btn sec" data-a="rep">'+t('report')+'</button></div>';
+  h+='<div class="card"><div class="row"><b class="grow">'+(est?t('est'):'Jamat')+'</b><span class="chip f-'+m.fresh+'">'+(m.fresh==='none'?t('never'):t('updated')+' '+ago(m.updated)+(m.by?' · '+esc(m.by):''))+'</span></div>'+
+    '<table class="tt'+(est?' est':'')+'">'+rows+'</table>'+(est?'<div class="sub" style="margin-top:8px">'+t('est_note')+'</div>':m.fresh==='stale'?'<div class="sub" style="margin-top:8px">'+t('stale_note')+'</div>':'')+'</div>';
+  if(m.canEdit)h+='<button class="btn" style="width:100%" data-a="edit">✏️ '+t('update')+'</button>';
+  else if(m.status==='pending')h+='<div class="sub">'+t('pend_lbl')+'</div>';
+  else if(m.myStatus==='pending')h+='<button class="btn sec" style="width:100%" disabled>'+t('pending_app')+'</button>';
+  else h+='<button class="btn" style="width:100%" data-a="apply">🤝 '+t('become')+'</button>';
+  if(m.log&&m.log.length)h+='<h2>'+t('history')+'</h2>'+m.log.map(l=>'<div class="sub">'+new Date(l.created).toLocaleDateString()+' · '+esc(l.name||'')+'</div>').join('');
+  sheet(mname(m),h);
+}
+$('#sb').onclick=async e=>{
+  const b=e.target.closest('[data-a]');if(!b||!CUR)return;const a=b.dataset.a,m=CUR;
+  if(a==='nav'){if(window.Android&&Android.navigate)Android.navigate(m.lat,m.lng,mname(m));else window.open('https://www.openstreetmap.org/?mlat='+m.lat+'&mlon='+m.lng+'#map=18/'+m.lat+'/'+m.lng)}
+  else if(a==='rep')sheet(mname(m),'<label>'+t('report')+'</label><textarea class="f" id="rp" rows="3"></textarea><button class="btn" style="width:100%" data-a="rep2">'+t('save')+'</button>');
+  else if(a==='rep2'){const r=await api('/api/report',{masjid:m.id,text:$('#rp').value});toast(r.ok?t('report_sent'):(r.d.error||'Error'));if(r.ok)closeSheet()}
+  else if(a==='apply'){if(!USER){closeSheet();tab('account');toast(t('need_signin'));return}
+    sheet(mname(m),'<p class="sub">'+t('vol_intro')+'</p><label>'+t('apply_note')+'</label><textarea class="f" id="an" rows="3"></textarea><button class="btn" style="width:100%" data-a="apply2">'+t('apply_btn')+'</button>')}
+  else if(a==='apply2'){const r=await api('/api/apply',{masjid:m.id,note:$('#an').value});if(r.ok){toast(t('applied'));openMasjid(m.id);loadMe()}else toast(r.d.error||'Error')}
+  else if(a==='edit')editor(m);
+  else if(a==='same'){const r=await api('/api/timings/'+m.id,{same:true});if(r.ok){toast(t('saved'));closeSheet();refresh()}else toast(r.d.error)}
+  else if(a==='save'){
+    const times={};PR.concat('jumuah').forEach(p=>times[p]=$('#tm_'+p).value||'');
+    if(PR.some(p=>!times[p])){toast(t('enter_five'));return}
+    const body={times};if($('#tm_name'))body.name=$('#tm_name').value;
+    const r=await api('/api/timings/'+m.id,body);if(r.ok){toast(t('saved'));closeSheet();refresh()}else toast(r.d.error||'Error')}
+};
+function editor(m){
+  const tm=m.times||{};
+  let h='';
+  if(!mname(m)||mname(m)===t('unnamed')||(USER&&USER.role==='admin'))h+='<label>'+t('name')+'</label><input class="f" id="tm_name" value="'+esc(m.name||'')+'">';
+  h+=PR.map(p=>'<label>'+t(p)+'</label><input class="f" type="time" id="tm_'+p+'" value="'+(tm[p]||'')+'">').join('');
+  h+='<label>'+t('jumuah_opt')+'</label><input class="f" type="time" id="tm_jumuah" value="'+(tm.jumuah||'')+'">';
+  h+='<div class="row">'+(m.times?'<button class="btn sec grow" data-a="same">'+t('same')+'</button>':'')+'<button class="btn grow" data-a="save">'+t('save')+'</button></div>';
+  sheet(t('update'),h);
+}
+function refresh(){const c=MP.center();load(c.lat,c.lng)}
+
+/* ============ tabs ============ */
+function drawNav(){
+  const items=[['nearby','🕌',t('nearby')],['add','➕',t('add')],['account','👤',t('account')]];
+  const badge=ADMIN?(ADMIN.apps.length+ADMIN.masjids.length+ADMIN.reports.length):0;
+  $('#nav').innerHTML=items.map(i=>'<button data-v="'+i[0]+'" class="'+(VIEW===i[0]?'on':'')+'"><b>'+i[1]+'</b>'+i[2]+(i[0]==='account'&&badge?'<span class="dot">'+badge+'</span>':'')+'</button>').join('');
+}
+$('#nav').onclick=e=>{const b=e.target.closest('[data-v]');if(b)tab(b.dataset.v)};
+function tab(v){
+  VIEW=v;closeSheet();drawNav();
+  document.getElementById('app').classList.toggle('addmode',v==='add');
+  $('#mapwrap').style.display=v==='account'?'none':'block';
+  $('#list').style.display=v==='nearby'?'block':'none';
+  $('#page').style.display=v==='nearby'?'none':'block';
+  $('#bar').style.display=v==='account'?'none':'flex';
+  if(v==='add')pageAdd();else if(v==='account')pageAccount();
+  setTimeout(()=>MP.resize(),60);
+}
+
+/* ============ add missing masjid ============ */
+function pageAdd(){
+  $('#page').innerHTML='<p class="sub" style="margin-top:0">'+t('add_hint')+'</p><label>'+t('name')+'</label><input class="f" id="an_n"><label>'+t('addr')+'</label><input class="f" id="an_a">'+
+    (USER?'<label style="display:flex;gap:8px;align-items:flex-start;color:var(--ink)"><input type="checkbox" id="an_v" style="margin-top:3px"><span>'+t('i_vol')+'</span></label><textarea class="f" id="an_note" rows="2" placeholder="'+esc(t('note_ph'))+'"></textarea>':'')+
+    '<button class="btn" style="width:100%" id="an_go">'+t('submit_add')+'</button>';
+  $('#an_go').onclick=()=>submitAdd(false);
+}
+async function submitAdd(force){
+  const c=MP.center(),name=$('#an_n').value.trim();
+  const r=await api('/api/masjids',{name,address:$('#an_a').value,lat:c.lat,lng:c.lng,force,volunteer:USER&&$('#an_v')&&$('#an_v').checked,note:$('#an_note')&&$('#an_note').value});
+  if(r.status===409&&r.d.dupes){
+    sheet(t('dup_t'),r.d.dupes.map(d=>'<div class="card"><div class="nm">'+esc(mname(d))+'</div><div class="sub">'+distTxt(d.dist)+'</div><button class="btn sm" style="margin-top:6px" data-open="'+d.id+'">'+t('dup_this')+'</button></div>').join('')+'<button class="btn sec" style="width:100%" id="dupadd">'+t('dup_add')+'</button>');
+    $('#dupadd').onclick=()=>{closeSheet();submitAdd(true)};
+    $('#sb').querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{tab('nearby');openMasjid(+b.dataset.open)});
+    return;
+  }
+  if(!r.ok){toast(r.d.error||'Error');return}
+  toast(t('sent'));$('#an_n').value='';$('#an_a').value='';tab('nearby');refresh();loadMe();
+}
+
+/* ============ account / volunteer / admin ============ */
+let authMode='login';
+async function loadMe(){
+  if(!TOKEN)return;
+  const r=await api('/api/me');
+  if(!r.ok){if(r.status===401){TOKEN='';localStorage.removeItem('mf_token');USER=null}return}
+  USER=r.d.user;VOLS=r.d.volunteering;
+  if(USER.role==='admin'){const a=await api('/api/admin/pending');if(a.ok)ADMIN=a.d}
+  drawNav();if(VIEW==='account')pageAccount();
+}
+function pageAccount(){
+  const P=$('#page');
+  if(!USER){
+    P.innerHTML='<div class="tabs"><button data-m="login" class="'+(authMode==='login'?'on':'')+'">'+t('signin')+'</button><button data-m="reg" class="'+(authMode==='reg'?'on':'')+'">'+t('register')+'</button></div>'+
+      '<p class="sub" style="margin-top:0">'+t('vol_intro')+'</p>'+(authMode==='reg'?'<label>'+t('yname')+'</label><input class="f" id="au_n">':'')+
+      '<label>'+t('phone')+'</label><input class="f" id="au_p" type="tel" inputmode="numeric"><label>'+t('pin')+'</label><input class="f" id="au_c" type="password" inputmode="numeric" maxlength="6">'+
+      '<button class="btn" style="width:100%" id="au_go">'+(authMode==='reg'?t('register'):t('signin'))+'</button>';
+    P.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{authMode=b.dataset.m;pageAccount()});
+    $('#au_go').onclick=async()=>{
+      const body={phone:$('#au_p').value,pin:$('#au_c').value};if(authMode==='reg')body.name=$('#au_n').value;
+      const r=await api(authMode==='reg'?'/api/register':'/api/login',body);
+      if(!r.ok){toast(r.d.error||'Error');return}
+      TOKEN=r.d.token;localStorage.mf_token=TOKEN;await loadMe();tab('account');
+    };
+    return;
+  }
+  let h='<div class="row" style="margin-bottom:6px"><div class="grow"><div class="nm">'+t('hello')+', '+esc(USER.name)+'</div><div class="sub">'+(USER.role==='admin'?t('adm'):t('vol_by'))+'</div></div><button class="btn sec sm" id="so">'+t('signout')+'</button></div>';
+  h+='<h2>'+t('my_vol')+'</h2>'+(VOLS.length?VOLS.map(v=>'<div class="card tap" data-id="'+v.masjid+'"><div class="row"><div class="grow nm">'+esc(mname(v))+'</div><span class="chip st-'+v.status+'">'+t('st_'+v.status)+'</span></div></div>').join(''):'<div class="sub">'+t('no_vol')+'</div>');
+  if(USER.role==='admin'&&ADMIN){
+    h+='<h2>'+t('apps')+' ('+ADMIN.apps.length+')</h2>'+ADMIN.apps.map(a=>'<div class="card"><div class="nm">'+esc(a.uname)+' · '+esc(a.phone)+'</div><div class="sub">'+esc(a.mname||t('unnamed'))+(a.mstatus==='pending'?' ('+t('pend_lbl')+')':'')+'</div>'+(a.note?'<div class="sub">“'+esc(a.note)+'”</div>':'')+
+      '<div class="row" style="margin-top:8px"><button class="btn sm grow" data-ad="app:1:'+a.id+'">'+t('approve')+'</button><button class="btn red sm grow" data-ad="app:0:'+a.id+'">'+t('reject')+'</button></div></div>').join('');
+    h+='<h2>'+t('newm')+' ('+ADMIN.masjids.length+')</h2>'+ADMIN.masjids.map(m=>'<div class="card"><div class="nm">'+esc(m.name)+'</div><div class="sub">'+esc(m.address||'')+' · '+esc(m.uname||'guest')+' '+esc(m.phone||'')+'</div><div class="sub">'+m.lat.toFixed(5)+', '+m.lng.toFixed(5)+'</div>'+
+      (m.near.length?'<div class="sub" style="margin-top:4px">Near:</div>'+m.near.map(n=>'<div class="row sub"><span class="grow">'+esc(n.name||t('unnamed'))+' · '+n.dist+' m</span><button class="btn sec sm" data-ad="merge:'+m.id+':'+n.id+'">'+t('merge')+'</button></div>').join(''):'')+
+      '<div class="row" style="margin-top:8px"><button class="btn sm grow" data-ad="mj:approve:'+m.id+'">'+t('approve')+'</button><button class="btn red sm grow" data-ad="mj:reject:'+m.id+'">'+t('reject')+'</button></div></div>').join('');
+    h+='<h2>'+t('reports')+' ('+ADMIN.reports.length+')</h2>'+ADMIN.reports.map(r=>'<div class="card"><div class="nm">'+esc(r.name||t('unnamed'))+'</div><div class="sub">'+esc(r.text||'')+'</div><div class="row" style="margin-top:8px"><button class="btn sec sm grow" data-id="'+r.mid+'">'+t('open')+'</button><button class="btn sm grow" data-ad="rep:'+r.id+'">'+t('clear')+'</button></div></div>').join('');
+    h+='<h2>'+t('vols')+' ('+ADMIN.volunteers.length+')</h2>'+ADMIN.volunteers.map(v=>'<div class="card row"><div class="grow"><div class="nm">'+esc(v.uname)+' · '+esc(v.phone)+'</div><div class="sub">'+esc(v.mname||t('unnamed'))+'</div></div><button class="btn red sm" data-ad="vol:'+v.id+'">'+t('remove')+'</button></div>').join('');
+  }
+  $('#page').innerHTML=h;
+  $('#so').onclick=async()=>{await api('/api/logout',{});TOKEN='';USER=null;ADMIN=null;VOLS=[];localStorage.removeItem('mf_token');drawNav();pageAccount()};
+}
+$('#page').onclick=async e=>{
+  const c=e.target.closest('[data-id]');if(c&&!e.target.closest('[data-ad]')){openMasjid(+c.dataset.id);return}
+  const b=e.target.closest('[data-ad]');if(!b)return;
+  const [k,x,y]=b.dataset.ad.split(':');let r;
+  if(k==='app')r=await api('/api/admin/application',{id:+y,approve:x==='1'});
+  else if(k==='mj')r=await api('/api/admin/masjid',{id:+y,action:x});
+  else if(k==='merge')r=await api('/api/admin/masjid',{id:+x,action:'merge',into:+y});
+  else if(k==='rep')r=await api('/api/admin/report/clear',{id:+x});
+  else if(k==='vol')r=await api('/api/admin/volunteer/remove',{id:+x});
+  if(r&&r.ok){await loadMe();refresh()}else if(r)toast(r.d.error||'Error');
+};
+
+/* ============ search ============ */
+let sTimer;
+$('#q').oninput=()=>{
+  clearTimeout(sTimer);const v=$('#q').value.trim();
+  if(v.length<3){$('#sug').style.display='none';return}
+  sTimer=setTimeout(async()=>{
+    const r=await api('/api/geocode?q='+encodeURIComponent(v)+'&lang='+LANG);
+    const s=$('#sug');if(!r.ok||!r.d.results.length){s.style.display='none';return}
+    s.innerHTML=r.d.results.map((x,i)=>'<div data-i="'+i+'">'+esc(x.name)+'</div>').join('');s.style.display='block';
+    s.onclick=ev=>{const d=ev.target.closest('[data-i]');if(!d)return;const p=r.d.results[+d.dataset.i];s.style.display='none';$('#q').value='';
+      if(VIEW==='account')tab('nearby');MP.fly(p.lat,p.lng,15);if(VIEW==='nearby')load(p.lat,p.lng)};
+  },500);
+};
+$('#loc').onclick=locate;
+$('#here').onclick=()=>{const c=MP.center();load(c.lat,c.lng)};
+$('#lang').onclick=()=>{LANG=LANG==='en'?'bn':'en';localStorage.mf_lang=LANG;applyLang();drawNav();renderList();if(VIEW!=='nearby')tab(VIEW)};
+function applyLang(){$('#lang').textContent=LANG==='en'?'বাংলা':'English';$('#q').placeholder=t('search_ph');$('#here').textContent=t('here');document.documentElement.lang=LANG}
+
+/* ============ start ============ */
+(async function(){
+  applyLang();
+  const c=await api('/api/config');if(c.ok)CFG=c.d;
+  const prov=MapProviders[CFG.map.provider]||MapProviders.osm;MP=prov;
+  const start=POS||{lat:23.8103,lng:90.4125};
+  MP.init('map',[start.lat,start.lng],POS?15:13,()=>{
+    if(VIEW==='nearby'&&CENTER){const c=MP.center();if(Math.hypot((c.lat-CENTER.lat)*111,(c.lng-CENTER.lng)*111*Math.cos(c.lat*Math.PI/180))>1.2)$('#here').style.display='block'}
+  });
+  if(POS)MP.setMe(POS.lat,POS.lng);
+  drawNav();
+  await loadMe();
+  if(POS)load(POS.lat,POS.lng);else locate().then(()=>{if(!MASJIDS.length&&!CENTER)load(start.lat,start.lng)});
+  setTimeout(()=>{if(!CENTER&&!loading)load(start.lat,start.lng)},4000);
+  window.appBack=()=>{if($('#sheet').style.display==='flex'){closeSheet();return true}if(VIEW!=='nearby'){tab('nearby');return true}return false};
+})();
+</script></body></html>
