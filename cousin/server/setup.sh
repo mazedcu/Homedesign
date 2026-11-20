@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")"
 [ "$(id -u)" = 0 ] || { echo "Please run as root (sudo ./setup.sh)"; exit 1; }
 command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh
-IP=$(curl -s https://ifconfig.me || echo "YOUR-DROPLET-IP")
+IP=$(curl -4 -s https://ifconfig.me || echo "YOUR-DROPLET-IP")
 busy(){ ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE "[:.]$1\$"; }
 echo; echo "=== Cousin Heaven setup ==="
 read -rp "Parent/admin name [Papa]: " ANAME; ANAME=${ANAME:-Papa}
