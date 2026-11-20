@@ -10,7 +10,7 @@ const __dir = path.dirname(fileURLToPath(import.meta.url));
 const PORT = +process.env.PORT || 3000;
 const DATA = process.env.DATA_DIR || path.join(__dir, 'data');
 fs.mkdirSync(DATA, { recursive: true });
-const OVERPASS_URL = process.env.OVERPASS_URL || 'https://overpass-api.de/api/interpreter';
+const OVERPASS_URLS = (process.env.OVERPASS_URL || 'https://overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter').split(',').map(x => x.trim()).filter(Boolean);
 const NOMINATIM_URL = process.env.NOMINATIM_URL || 'https://nominatim.openstreetmap.org/search';
 const COUNTRY = (process.env.COUNTRY_CODES || '').trim();
 // Map provider is swappable: today 'osm'. A 'google' provider can be added later (see README).
@@ -74,6 +74,7 @@ function nearRows(lat, lng, km, where = '', ...args) {
 
 // ---------- OpenStreetMap import (cached in our own database) ----------
 const CELL = 0.05, inflight = new Map(), failedAt = new Map();
+const cellKey = (lat, lng) => Math.floor(lat / CELL) + ':' + Math.floor(lng / CELL);
 async function syncAround(lat, lng) {
   const ci = Math.floor(lat / CELL), cj = Math.floor(lng / CELL), cells = [];
   for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) cells.push((ci + i) + ':' + (cj + j));
@@ -87,9 +88,16 @@ async function syncAround(lat, lng) {
     const bb = `(${s},${w},${n},${e})`;
     const ql = `[out:json][timeout:40];(node["amenity"="place_of_worship"]["religion"="muslim"]${bb};way["amenity"="place_of_worship"]["religion"="muslim"]${bb};relation["amenity"="place_of_worship"]["religion"="muslim"]${bb};);out center tags;`;
     try {
-      const r = await fetch(OVERPASS_URL, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', 'user-agent': 'MasjidFinder/1.0' }, body: 'data=' + encodeURIComponent(ql), signal: AbortSignal.timeout(45000) });
-      if (!r.ok) throw new Error('overpass ' + r.status);
-      const j = await r.json();
+      let j = null, lastErr = 'no server';
+      for (const u of OVERPASS_URLS) {
+        try {
+          const r = await fetch(u, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', 'user-agent': 'MasjidFinder/1.0' }, body: 'data=' + encodeURIComponent(ql), signal: AbortSignal.timeout(60000) });
+          if (!r.ok) throw new Error('overpass ' + r.status);
+          j = await r.json();
+          break;
+        } catch (e3) { lastErr = u + ': ' + e3.message; console.log('Overpass try failed', lastErr); }
+      }
+      if (!j) throw new Error(lastErr);
       db.exec('BEGIN');
       for (const el of j.elements || []) {
         const la = el.lat ?? el.center?.lat, lo = el.lon ?? el.center?.lon;
@@ -189,9 +197,11 @@ async function api(req, res, url) {
   if (p === '/api/masjids' && m === 'GET') {
     const lat = +S.get('lat'), lng = +S.get('lng'), km = Math.min(25, Math.max(0.5, +S.get('r') || 4));
     if (!isFinite(lat) || !isFinite(lng)) return send(res, 400, { error: 'lat/lng' });
-    await syncAround(lat, lng);
+    const sp = syncAround(lat, lng);
+    if (sp) await Promise.race([sp, new Promise(r => setTimeout(r, 6000))]);
+    const key = cellKey(lat, lng), syncing = inflight.has(key), syncFailed = !syncing && !!failedAt.get(key) && now() - failedAt.get(key) < 10 * 60e3;
     let rows = nearRows(lat, lng, km, "AND (status='active' OR (status='pending' AND added_by=?))", me ? me.id : -1).slice(0, 80);
-    return send(res, 200, { masjids: rows.map(r => shape(r)) });
+    return send(res, 200, { masjids: rows.map(r => shape(r)), syncing, syncFailed });
   }
   if ((g = p.match(/^\/api\/masjid\/(\d+)$/)) && m === 'GET') {
     const r = q1('SELECT * FROM masjids WHERE id=?', +g[1]);

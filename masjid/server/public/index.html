@@ -76,7 +76,7 @@ table.tt tr.nx td{background:var(--g2)}
 <script>
 /* ============ translations ============ */
 const TR={en:{
-nearby:'Nearby',add:'Add',account:'Account',search_ph:'Search a place or area…',searching:'Looking for masjids…',none_found:'No masjids found here yet. Move the map or add one.',
+importing:'Importing masjids for this area from OpenStreetMap. This happens only the first time and can take up to a minute…',import_fail:'Could not reach the OpenStreetMap server just now. Try again in a few minutes, or add a masjid yourself.',nearby:'Nearby',add:'Add',account:'Account',search_ph:'Search a place or area…',searching:'Looking for masjids…',none_found:'No masjids found here yet. Move the map or add one.',
 here:'Search this area',navigate:'Navigate',report:'Wrong time?',report_sent:'Thank you. The report was sent.',become:'Become the volunteer',pending_app:'Your application is waiting for approval',
 update:'Update jamat times',same:'Same as last week ✓',save:'Save',name:'Masjid name',addr:'Address / landmark (optional)',phone:'Phone number',pin:'PIN (4–6 digits)',yname:'Your name',
 signin:'Sign in',register:'Create account',signout:'Sign out',updated:'Updated',never:'Not updated yet',by:'by',est:'Estimated prayer times',est_note:'No volunteer has added jamat times for this masjid yet. These are calculated times for your area, not the masjid’s jamat.',
@@ -89,7 +89,7 @@ close:'Close',need_signin:'Please sign in or create an account first.',saved:'Sa
 vol_intro:'Volunteers keep the jamat times of one masjid up to date, about once a week. An admin approves each volunteer.',apply_note:'Tell the admin how you are connected to this masjid (optional)',apply_btn:'Send application',
 applied:'Application sent. You will be able to update times once approved.',new_pin:'PIN',enter_five:'Enter all five daily jamat times.',jumuah_opt:'Jumu’ah (optional)',pend_lbl:'Waiting for approval',
 cancel:'Cancel',history:'Recent updates',map_by:'Map data © OpenStreetMap contributors'},
-bn:{nearby:'কাছাকাছি',add:'যোগ করুন',account:'অ্যাকাউন্ট',search_ph:'স্থান বা এলাকা খুঁজুন…',searching:'মসজিদ খোঁজা হচ্ছে…',none_found:'এখানে এখনো কোনো মসজিদ পাওয়া যায়নি। ম্যাপ সরান বা মসজিদ যোগ করুন।',
+bn:{importing:'এই এলাকার মসজিদ OpenStreetMap থেকে আনা হচ্ছে। এটি শুধু প্রথমবার হয়, এক মিনিট পর্যন্ত লাগতে পারে…',import_fail:'এখন OpenStreetMap সার্ভারে পৌঁছানো যাচ্ছে না। কয়েক মিনিট পরে আবার চেষ্টা করুন, বা নিজে মসজিদ যোগ করুন।',nearby:'কাছাকাছি',add:'যোগ করুন',account:'অ্যাকাউন্ট',search_ph:'স্থান বা এলাকা খুঁজুন…',searching:'মসজিদ খোঁজা হচ্ছে…',none_found:'এখানে এখনো কোনো মসজিদ পাওয়া যায়নি। ম্যাপ সরান বা মসজিদ যোগ করুন।',
 here:'এই এলাকায় খুঁজুন',navigate:'পথ দেখুন',report:'সময় ভুল?',report_sent:'ধন্যবাদ। রিপোর্ট পাঠানো হয়েছে।',become:'স্বেচ্ছাসেবক হোন',pending_app:'আপনার আবেদন অনুমোদনের অপেক্ষায়',
 update:'জামাতের সময় আপডেট করুন',same:'গত সপ্তাহের মতোই ✓',save:'সংরক্ষণ',name:'মসজিদের নাম',addr:'ঠিকানা / চেনার মতো স্থান (ঐচ্ছিক)',phone:'ফোন নম্বর',pin:'পিন (৪–৬ সংখ্যা)',yname:'আপনার নাম',
 signin:'সাইন ইন',register:'অ্যাকাউন্ট খুলুন',signout:'সাইন আউট',updated:'আপডেট',never:'এখনো আপডেট হয়নি',by:'—',est:'আনুমানিক নামাজের সময়',est_note:'এই মসজিদের জামাতের সময় এখনো কোনো স্বেচ্ছাসেবক দেননি। এগুলো আপনার এলাকার হিসাব করা সময়, মসজিদের জামাত নয়।',
@@ -110,7 +110,7 @@ const PR=['fajr','dhuhr','asr','maghrib','isha'];
 const mname=m=>(LANG==='bn'?(m.name_bn||m.name||m.name_en):(m.name_en||m.name||m.name_bn))||t('unnamed');
 
 /* ============ state ============ */
-let TOKEN=localStorage.mf_token||'',USER=null,VOLS=[],POS=null,MASJIDS=[],VIEW='nearby',ADMIN=null,CFG={map:{provider:'osm'}},CENTER=null,loading=false;
+let SYNCING=false,SYNCFAIL=false,TOKEN=localStorage.mf_token||'',USER=null,VOLS=[],POS=null,MASJIDS=[],VIEW='nearby',ADMIN=null,CFG={map:{provider:'osm'}},CENTER=null,loading=false;
 try{POS=JSON.parse(localStorage.mf_pos||'null')}catch(e){}
 
 async function api(p,body){
@@ -194,17 +194,19 @@ async function locate(){
 }
 
 /* ============ nearby ============ */
-async function load(lat,lng){
+async function load(lat,lng,tries=0,silent=false){
   if(loading)return;loading=true;$('#here').style.display='none';
-  $('#list').innerHTML='<div class="sub" style="padding:18px;text-align:center">'+t('searching')+'</div>';
+  if(!silent)$('#list').innerHTML='<div class="sub" style="padding:18px;text-align:center">'+t('searching')+'</div>';
   const r=await api('/api/masjids?lat='+lat+'&lng='+lng+'&r=4');
   loading=false;
+  if(r.ok&&r.d.syncing&&tries<25){SYNCING=true;setTimeout(()=>{if(CENTER&&CENTER.lat===lat&&CENTER.lng===lng||!CENTER)load(lat,lng,tries+1,true)},4000)}else SYNCING=false;
+  SYNCFAIL=!!(r.ok&&r.d.syncFailed);
   if(!r.ok){$('#list').innerHTML='<div class="sub" style="padding:18px;text-align:center">'+esc(r.d.error||'Error')+'</div>';return}
   CENTER={lat,lng};MASJIDS=r.d.masjids;MP.setMarkers(MASJIDS,openMasjid);renderList();
 }
 function renderList(){
   const ref=POS||CENTER;
-  if(!MASJIDS.length){$('#list').innerHTML='<div class="sub" style="padding:18px;text-align:center">'+t('none_found')+'</div>';return}
+  if(!MASJIDS.length){$('#list').innerHTML='<div class="sub" style="padding:18px;text-align:center">'+(SYNCING?t('importing'):SYNCFAIL?t('import_fail'):t('none_found'))+'</div>';return}
   $('#list').innerHTML=MASJIDS.map(m=>{
     const nj=nextJamat(m.times);
     const d=ref?(Math.hypot((m.lat-ref.lat)*111,(m.lng-ref.lng)*111*Math.cos(ref.lat*Math.PI/180))):m.dist;
