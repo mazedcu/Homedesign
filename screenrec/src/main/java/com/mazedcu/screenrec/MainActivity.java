@@ -71,7 +71,7 @@ public class MainActivity extends Activity {
         startBtn = text("", 18, Color.WHITE);
         startBtn.setGravity(Gravity.CENTER);
         startBtn.setPadding(0, dp(16), 0, dp(16));
-        startBtn.setOnClickListener(v -> onStart());
+        startBtn.setOnClickListener(v -> onStartTap());
         LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(-1, -2);
         sl.topMargin = dp(22);
         root.addView(startBtn, sl);
@@ -131,7 +131,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void onStart() {
+    private void onStartTap() {
         if (RecorderService.running) {
             startService(new Intent(this, RecorderService.class).setAction(RecorderService.ACT_STOP));
             startBtn.postDelayed(this::refresh, 600);
